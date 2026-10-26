@@ -1,0 +1,40 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Cada jugador solo puede leer y modificar su propio perfil.
+    match /usuarios/{uid} {
+      function isOwner() {
+        return request.auth != null && request.auth.uid == uid;
+      }
+
+      function validNameAndCommune(data) {
+        return data.nombre is string
+          && data.nombre.size() >= 2
+          && data.nombre.size() <= 70
+          && data.comuna is string
+          && data.comuna.size() <= 80;
+      }
+
+      allow get: if isOwner();
+      allow list: if false;
+
+      allow create: if isOwner()
+        && request.resource.data.keys().hasOnly(['nombre', 'correo', 'comuna', 'creadoEn'])
+        && request.resource.data.keys().hasAll(['nombre', 'correo', 'comuna', 'creadoEn'])
+        && validNameAndCommune(request.resource.data)
+        && request.resource.data.correo == request.auth.token.email
+        && request.resource.data.creadoEn == request.time;
+
+      allow update: if isOwner()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre', 'comuna'])
+        && validNameAndCommune(request.resource.data);
+      allow delete: if false;
+    }
+
+    // La publicación y las inscripciones necesitan reglas adicionales
+    // antes de habilitar sus respectivas funcionalidades.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

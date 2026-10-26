@@ -31,8 +31,80 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // La publicación y las inscripciones necesitan reglas adicionales
-    // antes de habilitar sus respectivas funcionalidades.
+    // Publicaciones de la comunidad, visibles para usuarios autenticados.
+    match /publicaciones/{postId} {
+      function loggedIn() {
+        return request.auth != null;
+      }
+
+      function validPublication(data) {
+        return data.keys().hasOnly([
+            'categoria', 'autorUid', 'autorNombre', 'equipoNombre',
+            'titulo', 'descripcion', 'comuna', 'futbol', 'nivel',
+            'fecha', 'hora', 'estado', 'creadoEn'
+          ])
+          && data.keys().hasAll([
+            'categoria', 'autorUid', 'autorNombre', 'equipoNombre',
+            'titulo', 'descripcion', 'comuna', 'futbol', 'nivel',
+            'fecha', 'hora', 'estado', 'creadoEn'
+          ])
+          && data.categoria in [
+            'persona_busca_equipo', 'equipo_busca_jugadores', 'equipo_busca_rival'
+          ]
+          && data.autorUid is string
+          && data.autorUid == request.auth.uid
+          && data.autorNombre is string
+          && data.autorNombre.size() >= 2
+          && data.autorNombre.size() <= 70
+          && data.equipoNombre is string
+          && data.equipoNombre.size() <= 80
+          && (
+            (data.categoria == 'persona_busca_equipo' && data.equipoNombre == '')
+            || (data.categoria != 'persona_busca_equipo' && data.equipoNombre.size() >= 2)
+          )
+          && data.titulo is string
+          && data.titulo.size() >= 5
+          && data.titulo.size() <= 110
+          && data.descripcion is string
+          && data.descripcion.size() >= 15
+          && data.descripcion.size() <= 1200
+          && data.comuna is string
+          && data.comuna.size() >= 2
+          && data.comuna.size() <= 80
+          && data.futbol in ['Fútbol 5', 'Fútbol 7', 'Fútbol 8', 'Fútbol 11']
+          && data.nivel in ['Amateur', 'Intermedio', 'Avanzado']
+          && data.fecha is string
+          && (data.fecha == '' || data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+))
+          && data.hora is string
+          && (data.hora == '' || data.hora.matches('^([01][0-9]|2[0-3]):[0-5][0-9]    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+))
+          && (data.categoria != 'equipo_busca_rival' || (data.fecha != '' && data.hora != ''))
+          && data.estado == 'activa'
+          && data.creadoEn == request.time;
+      }
+
+      allow read: if loggedIn();
+
+      allow create: if loggedIn()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && validPublication(request.resource.data)
+        && request.resource.data.autorNombre ==
+          get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombre;
+
+      // La edición, el cierre y la eliminación se incorporarán en otra etapa.
+      allow update, delete: if false;
+    }
+
+    // Las demás colecciones se mantienen cerradas al acceso de clientes.
     match /{document=**} {
       allow read, write: if false;
     }

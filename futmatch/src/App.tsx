@@ -1,21 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import type { User } from 'firebase/auth'
 import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { auth } from './firebase'
 import AuthScreen from './AuthScreen'
+import { escucharPublicaciones } from './publicaciones'
+import type { Publicacion, Categoria } from './publicaciones'
+import { Home, Explore, Publish } from './Publicaciones'
 import './App.css'
 
-type PostType = 'jugador' | 'rival' | 'cancha' | 'equipo'
 type View = 'inicio' | 'explorar' | 'publicar' | 'matches' | 'mensajes' | 'perfil'
-type Post = { id: number; type: PostType; author: string; initials: string; title: string; description: string; location: string; date: string; time: string; football: string; level: string; color: string }
-
-const posts: Post[] = [
-  { id: 1, type: 'jugador', author: 'Los Galácticos', initials: 'LG', title: 'Buscamos defensa para este sábado', description: 'Nos falta un defensa con buena disposición para cerrar el equipo. Ambiente competitivo y amistoso.', location: 'Maipú', date: 'Sábado 14 Jun', time: '20:00', football: 'Fútbol 7', level: 'Intermedio', color: '#6c4af2' },
-  { id: 2, type: 'rival', author: 'FC Relámpago', initials: 'FR', title: 'Buscamos rival para este domingo', description: 'Queremos jugar un partido amistoso y terminar la jornada compartiendo.', location: 'Ñuñoa', date: 'Domingo 15 Jun', time: '18:00', football: 'Fútbol 7', level: 'Amateur', color: '#0aa878' },
-  { id: 3, type: 'cancha', author: 'Barrio Unido', initials: 'BU', title: 'Buscamos cancha de fútbol 7', description: 'Necesitamos una cancha disponible para jugar entre las 16:00 y 18:00.', location: 'La Florida', date: 'Domingo 15 Jun', time: '16:00 - 18:00', football: 'Fútbol 7', level: 'Amateur', color: '#ef8b35' },
-  { id: 4, type: 'equipo', author: 'Matías Rojas', initials: 'MR', title: 'Busco equipo para jugar regularmente', description: 'Juego de volante y puedo asistir entre semana y fines de semana. Busco un grupo responsable.', location: 'Santiago Centro', date: 'Disponible ahora', time: 'Flexible', football: 'Fútbol 8', level: 'Intermedio', color: '#e45072' },
-]
-const typeInfo: Record<PostType, { label: string; icon: string }> = { jugador: { label: 'Buscamos jugador', icon: '↻' }, rival: { label: 'Buscamos rival', icon: '⚔' }, cancha: { label: 'Buscamos cancha', icon: '▣' }, equipo: { label: 'Busco equipo', icon: '●' } }
 const navItems: { id: View; label: string; icon: string }[] = [{ id: 'inicio', label: 'Inicio', icon: '⌂' }, { id: 'explorar', label: 'Explorar', icon: '⌕' }, { id: 'publicar', label: 'Publicar', icon: '+' }, { id: 'matches', label: 'Matches', icon: '♥' }, { id: 'mensajes', label: 'Mensajes', icon: '▱' }, { id: 'perfil', label: 'Perfil', icon: '◉' }]
 
 function App() {
@@ -40,61 +33,36 @@ function Dashboard({ user, notice, onDismissNotice }: { user: User; notice: stri
   const displayName = user.displayName?.trim() || user.email?.split('@')[0] || 'Jugador'
   const initials = displayName.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('')
   const [view, setView] = useState<View>('inicio')
-  const [filter, setFilter] = useState<PostType | 'todos'>('todos')
-  const [liked, setLiked] = useState<number[]>([])
+  const [filter, setFilter] = useState<Categoria | 'todos'>('todos')
+  const [publicaciones, setPublicaciones] = useState<Publicacion[]>([])
+  const [postsLoading, setPostsLoading] = useState(true)
+  const [postsError, setPostsError] = useState('')
+  const [localNotice, setLocalNotice] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
-  const visiblePosts = useMemo(() => filter === 'todos' ? posts : posts.filter((post) => post.type === filter), [filter])
   const goTo = (nextView: View) => { setView(nextView); setMenuOpen(false) }
-  const toggleLike = (id: number) => setLiked((current) => current.includes(id) ? current.filter((item) => item !== id) : [...current, id])
-  return <div className="app-shell">
-    <aside className={`sidebar ${menuOpen ? 'is-open' : ''}`}><div className="brand"><span className="brand-mark">⚽</span><span>Fut<span>Match</span></span></div><div className="profile-mini"><div className="avatar avatar-purple">{initials}</div><div><strong>{displayName}</strong><small>Futbolista</small></div><button aria-label="Opciones">•••</button></div><nav className="main-nav" aria-label="Navegación principal">{navItems.map((item) => <button className={view === item.id ? 'active' : ''} key={item.id} onClick={() => goTo(item.id)}><span className="nav-icon">{item.icon}</span>{item.label}{item.id === 'matches' && <b className="nav-badge">2</b>}</button>)}</nav><div className="sidebar-bottom"><button className="help-link"><span>?</span> Centro de ayuda</button><button className="logout" onClick={() => { void signOut(auth) }}><span>↪</span> Cerrar sesión</button></div></aside>
-    <main className="main-content"><header className="topbar"><button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menú">☰</button><div className="mobile-brand">⚽ Fut<span>Match</span></div><div className="topbar-actions"><button className="icon-button" aria-label="Notificaciones">♢<i /></button><div className="avatar avatar-purple" title={user.email ?? undefined}>{initials}</div></div></header>{notice && <div className="session-notice" role="status"><span>{notice}</span><button onClick={onDismissNotice} aria-label="Cerrar aviso">×</button></div>}
-      {view === 'inicio' && <Home name={displayName} onNavigate={goTo} posts={visiblePosts} liked={liked} onLike={toggleLike} />}{view === 'explorar' && <Explore posts={visiblePosts} filter={filter} setFilter={setFilter} liked={liked} onLike={toggleLike} />}{view === 'publicar' && <Publish />}{view === 'matches' && <SimplePage icon="♥" title="Tus matches" text="Aquí aparecerán las conexiones que hagan match contigo." button="Explorar publicaciones" onClick={() => goTo('explorar')} />}{view === 'mensajes' && <SimplePage icon="▱" title="Mensajes" text="Cuando hagas match podrás conversar y coordinar tu próximo partido." button="Ver matches" onClick={() => goTo('matches')} />}{view === 'perfil' && <Profile user={user} />}
-    </main><nav className="bottom-nav">{navItems.slice(0, 5).map((item) => <button className={view === item.id ? 'active' : ''} key={item.id} onClick={() => goTo(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav>
-  </div>
-}
-function Home({ name, onNavigate, posts: visiblePosts, liked, onLike }: { name: string; onNavigate: (view: View) => void; posts: Post[]; liked: number[]; onLike: (id: number) => void }) { return <div className="page"><section className="welcome"><div><p className="eyebrow">{new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()).toUpperCase()}</p><h1>Hola, {name.split(" ")[0]} <span>👋</span></h1><p className="muted">Encuentra tu próximo partido o equipo.</p></div><button className="primary-button" onClick={() => onNavigate('publicar')}>＋ Crear publicación</button></section><section className="hero-banner"><div><span className="hero-label">TU PRÓXIMO PARTIDO</span><h2>El fútbol se disfruta<br />mejor en equipo.</h2><p>Conecta con jugadores y equipos cerca de ti.</p><button className="light-button" onClick={() => onNavigate('explorar')}>Explorar ahora <span>→</span></button></div><div className="hero-ball">⚽</div></section><section className="section-heading"><div><h2>Publicaciones para ti</h2><p className="muted">Basadas en tu ubicación y preferencias</p></div><button className="text-button" onClick={() => onNavigate('explorar')}>Ver todas <span>→</span></button></section><div className="post-grid">{visiblePosts.slice(0, 3).map((post) => <PostCard key={post.id} post={post} liked={liked.includes(post.id)} onLike={onLike} />)}</div><section className="quick-stats"><div><strong>24</strong><span>Publicaciones<br />cerca de ti</span></div><div><strong>8</strong><span>Equipos activos<br />esta semana</span></div><div><strong>3</strong><span>Personas buscando<br />como tú</span></div></section></div> }
-function Explore({ posts: visiblePosts, filter, setFilter, liked, onLike }: { posts: Post[]; filter: PostType | 'todos'; setFilter: (filter: PostType | 'todos') => void; liked: number[]; onLike: (id: number) => void }) { return <div className="page"><div className="page-heading"><div><p className="eyebrow">DESCUBRE OPORTUNIDADES</p><h1>Explorar</h1><p className="muted">Encuentra jugadores, equipos y partidos cerca de ti.</p></div><button className="filter-button">☷ Filtros</button></div><div className="filters"><button className={filter === 'todos' ? 'selected' : ''} onClick={() => setFilter('todos')}>Todos</button>{(Object.keys(typeInfo) as PostType[]).map((type) => <button className={filter === type ? 'selected' : ''} key={type} onClick={() => setFilter(type)}>{typeInfo[type].icon} {typeInfo[type].label.replace('Buscamos ', '').replace('Busco ', '')}</button>)}</div><div className="filter-row"><div className="search-box">⌕ <input placeholder="Buscar por comuna o publicación" /></div><select><option>Esta semana</option><option>Este mes</option></select><select><option>Cualquier nivel</option><option>Amateur</option><option>Intermedio</option></select></div><div className="result-heading"><h2>{visiblePosts.length} publicaciones encontradas</h2><button className="sort-button">Más recientes⌄</button></div><div className="post-grid explore-grid">{visiblePosts.map((post) => <PostCard key={post.id} post={post} liked={liked.includes(post.id)} onLike={onLike} />)}</div></div> }
-function PostCard({ post, liked, onLike }: { post: Post; liked: boolean; onLike: (id: number) => void }) { return <article className="post-card"><div className="card-top"><span className="type-pill" style={{ color: post.color, backgroundColor: `${post.color}16` }}>{typeInfo[post.type].icon} {typeInfo[post.type].label}</span><button className="more-button" aria-label="Más opciones">•••</button></div><div className="author"><div className="avatar" style={{ backgroundColor: post.color }}>{post.initials}</div><div><strong>{post.author}</strong><small>Hace 2 horas · Verificado ✓</small></div></div><h3>{post.title}</h3><p className="card-description">{post.description}</p><div className="details"><span>⌖ {post.location}</span><span>◷ {post.date}</span><span>◷ {post.time}</span><span>⚽ {post.football}</span></div><div className="card-footer"><span className="level">{post.level}</span><button className={`interest-button ${liked ? 'liked' : ''}`} onClick={() => onLike(post.id)}>{liked ? '♥ Me interesa' : '♡ Me interesa'}</button></div></article> }
-function Publish() {
-  const [selectedType, setSelectedType] = useState<'jugador' | 'rival' | 'cancha'>('jugador')
-  const choices = [
-    { id: 'jugador', icon: '↻', title: 'Jugador', description: 'Encuentra un jugador', placeholder: 'Ej: Buscamos defensa para este sábado' },
-    { id: 'rival', icon: '⚔', title: 'Rival', description: 'Encuentra otro equipo', placeholder: 'Ej: Buscamos equipo rival para el domingo' },
-    { id: 'cancha', icon: '▣', title: 'Cancha', description: 'Encuentra una cancha', placeholder: 'Ej: Buscamos cancha de fútbol 7 en La Florida' },
-  ] as const
-  const selectedChoice = choices.find((choice) => choice.id === selectedType)!
+  useEffect(() => {
+    const stop = escucharPublicaciones(
+      (items) => { setPublicaciones(items); setPostsLoading(false); setPostsError('') },
+      () => { setPostsLoading(false); setPostsError('No se pudieron cargar las publicaciones. Revisa tu conexión y las reglas de Firestore.') },
+    )
+    return stop
+  }, [])
 
-  return <div className="page narrow-page">
-    <div className="page-heading">
-      <div><p className="eyebrow">COMPARTE CON LA COMUNIDAD</p><h1>Crear publicación</h1><p className="muted">Cuéntale a la comunidad qué necesitas.</p></div>
-    </div>
-    <div className="form-card">
-      <label id="tipo-publicacion-label">¿Qué estás buscando?</label>
-      <div className="choice-grid" role="group" aria-labelledby="tipo-publicacion-label">
-        {choices.map((choice) =>
-          <button
-            key={choice.id}
-            type="button"
-            className={`choice ${selectedType === choice.id ? 'active' : ''}`}
-            aria-pressed={selectedType === choice.id}
-            onClick={() => setSelectedType(choice.id)}
-          >
-            {choice.icon}
-            <strong>{choice.title}</strong>
-            <small>{choice.description}</small>
-          </button>
-        )}
-      </div>
-      <label>Título de la publicación<input placeholder={selectedChoice.placeholder} /></label>
-      <label>Descripción<textarea placeholder="Agrega más detalles sobre lo que necesitas..." rows={4} /></label>
-      <div className="form-columns">
-        <label>Comuna o ciudad<input placeholder="Ej: Maipú" /></label>
-        <label>Tipo de fútbol<select><option>Fútbol 7</option><option>Fútbol 5</option><option>Fútbol 8</option><option>Fútbol 11</option></select></label>
-      </div>
-      <div className="form-columns"><label>Fecha<input type="date" /></label><label>Hora<input type="time" /></label></div>
-      <button className="primary-button publish-button" type="button">Publicar necesidad →</button>
-    </div>
+  const afterPublish = (category: Categoria) => {
+    setFilter(category)
+    setLocalNotice('Tu publicación se guardó correctamente. Ya aparece en Explorar.')
+    goTo('explorar')
+  }
+  return <div className="app-shell">
+    <aside className={`sidebar ${menuOpen ? 'is-open' : ''}`}><div className="brand"><span className="brand-mark">⚽</span><span>Fut<span>Match</span></span></div><div className="profile-mini"><div className="avatar avatar-purple">{initials}</div><div><strong>{displayName}</strong><small>Futbolista</small></div><button aria-label="Opciones">•••</button></div><nav className="main-nav" aria-label="Navegación principal">{navItems.map((item) => <button className={view === item.id ? 'active' : ''} key={item.id} onClick={() => goTo(item.id)}><span className="nav-icon">{item.icon}</span>{item.label}</button>)}</nav><div className="sidebar-bottom"><button className="help-link"><span>?</span> Centro de ayuda</button><button className="logout" onClick={() => { void signOut(auth) }}><span>↪</span> Cerrar sesión</button></div></aside>
+    <main className="main-content"><header className="topbar"><button className="menu-toggle" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menú">☰</button><div className="mobile-brand">⚽ Fut<span>Match</span></div><div className="topbar-actions"><button className="icon-button" aria-label="Notificaciones">♢<i /></button><div className="avatar avatar-purple" title={user.email ?? undefined}>{initials}</div></div></header>{(notice || localNotice) && <div className="session-notice" role="status"><span>{localNotice || notice}</span><button onClick={() => { setLocalNotice(''); onDismissNotice() }} aria-label="Cerrar aviso">×</button></div>}
+      {view === 'inicio' && <Home name={displayName} onNavigate={goTo} publicaciones={publicaciones} loading={postsLoading} error={postsError} />}
+      {view === 'explorar' && <Explore publicaciones={publicaciones} filter={filter} setFilter={setFilter} loading={postsLoading} error={postsError} />}
+      {view === 'publicar' && <Publish user={user} onCreated={afterPublish} />}
+      {view === 'matches' && <SimplePage icon="♥" title="Tus matches" text="Próximamente podrás guardar y gestionar tus conexiones." button="Explorar publicaciones" onClick={() => goTo('explorar')} />}
+      {view === 'mensajes' && <SimplePage icon="▱" title="Mensajes" text="La mensajería estará disponible en una futura etapa de FutMatch." button="Explorar publicaciones" onClick={() => goTo('explorar')} />}
+      {view === 'perfil' && <Profile user={user} />}
+    </main><nav className="bottom-nav">{navItems.slice(0, 5).map((item) => <button className={view === item.id ? 'active' : ''} key={item.id} onClick={() => goTo(item.id)}><span>{item.icon}</span>{item.label}</button>)}</nav>
   </div>
 }
 function Profile({ user }: { user: User }) { const name = user.displayName?.trim() || user.email?.split('@')[0] || 'Jugador'; return <div className="page"><div className="profile-cover"><div className="profile-avatar">{name.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('')}</div><div><p className="eyebrow">MI PERFIL</p><h1>{name}</h1><p>⚽ {user.email}</p></div></div><div className="profile-layout"><section className="profile-card"><h2>Sobre mí</h2><p>Tu perfil está vinculado a Firebase Authentication. Participa y organiza partidos con tu cuenta de FutMatch.</p><div className="profile-tags"><span>Cuenta registrada</span></div></section><section className="profile-card"><h2>Datos deportivos</h2><p>La posición, el nivel de juego y la disponibilidad se podrán configurar cuando incorporemos la edición del perfil.</p></section></div></div> }

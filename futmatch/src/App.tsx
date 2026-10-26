@@ -86,7 +86,7 @@ function Publish() {
           </button>
         )}
       </div>
-      <label>Título de la publicación<input key={selectedType} placeholder={selectedChoice.placeholder} /></label>
+      <label>Título de la publicación<input placeholder={selectedChoice.placeholder} /></label>
       <label>Descripción<textarea placeholder="Agrega más detalles sobre lo que necesitas..." rows={4} /></label>
       <div className="form-columns">
         <label>Comuna o ciudad<input placeholder="Ej: Maipú" /></label>

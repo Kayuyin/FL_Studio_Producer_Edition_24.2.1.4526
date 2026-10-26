@@ -1,0 +1,17 @@
+{
+  "name": "responsive-web-app",
+  "version": "1.0.0",
+  "description": "A responsive web application with a mobile-first design.",
+  "main": "index.html",
+  "scripts": {
+    "start": "live-server",
+    "build": "echo 'Build process not defined'",
+    "test": "echo 'No tests defined'"
+  },
+  "author": "Your Name",
+  "license": "MIT",
+  "dependencies": {},
+  "devDependencies": {
+    "live-server": "^1.2.1"
+  }
+}

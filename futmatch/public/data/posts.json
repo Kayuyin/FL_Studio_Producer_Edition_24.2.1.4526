@@ -1,0 +1,38 @@
+[
+  {
+    "id": 1,
+    "type": "jugador",
+    "author": "Los Galácticos",
+    "title": "Buscamos defensa para este sábado",
+    "location": "Maipú",
+    "date": "Sábado 14 Jun",
+    "time": "20:00",
+    "football": "Fútbol 7",
+    "level": "Intermedio",
+    "status": "active"
+  },
+  {
+    "id": 2,
+    "type": "rival",
+    "author": "FC Relámpago",
+    "title": "Buscamos rival para este domingo",
+    "location": "Ñuñoa",
+    "date": "Domingo 15 Jun",
+    "time": "18:00",
+    "football": "Fútbol 7",
+    "level": "Amateur",
+    "status": "active"
+  },
+  {
+    "id": 3,
+    "type": "cancha",
+    "author": "Barrio Unido",
+    "title": "Buscamos cancha de fútbol 7",
+    "location": "La Florida",
+    "date": "Domingo 15 Jun",
+    "time": "16:00 - 18:00",
+    "football": "Fútbol 7",
+    "level": "Amateur",
+    "status": "active"
+  }
+]

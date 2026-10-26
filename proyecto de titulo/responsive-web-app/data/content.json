@@ -1,0 +1,29 @@
+{
+  "title": "Responsive Web Application",
+  "description": "This is a sample responsive web application that adjusts to different screen sizes.",
+  "features": [
+    "Responsive design for mobile and desktop",
+    "Dynamic content loading",
+    "User-friendly interface"
+  ],
+  "team": {
+    "members": [
+      {
+        "name": "Alice",
+        "role": "Developer"
+      },
+      {
+        "name": "Bob",
+        "role": "Designer"
+      },
+      {
+        "name": "Charlie",
+        "role": "Project Manager"
+      }
+    ]
+  },
+  "contact": {
+    "email": "contact@example.com",
+    "phone": "+1234567890"
+  }
+}

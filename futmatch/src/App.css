@@ -8,3 +8,22 @@
 .auth-loading{min-height:100vh;display:grid;place-items:center;background:#f8f8fc;color:#7048f5;font:700 22px 'Space Grotesk',sans-serif}
 .session-notice{display:flex;align-items:center;justify-content:space-between;gap:16px;margin:18px 5.5% 0;padding:14px 18px;background:#f0edff;color:#35236f;border:1px solid #ded8ff;border-radius:10px;font-size:13px;line-height:1.5}
 .session-notice button{background:transparent;border:0;color:#35236f;font-size:22px}
+
+/* Publicaciones guardadas en Firestore */
+.field-label{display:block;color:#565263;font-size:12px;font-weight:700}
+.posts-feedback{background:#fff;padding:22px 20px;border:1px solid var(--line);border-radius:12px;color:#777387;font-size:13px;line-height:1.6}
+.posts-error{color:#9c2b36;background:#fff3f3;border-color:#ffd9d9}
+.publication-active{color:#128165;font-size:11px;font-weight:700}
+.form-card .primary-button:disabled{opacity:.65;cursor:wait}
+.choice{min-height:101px}
+.choice:focus-visible,.filters button:focus-visible{outline:3px solid #9c88ff;outline-offset:2px}
+.post-card .author{margin:17px 0}
+.post-card .card-description{white-space:pre-wrap;overflow-wrap:anywhere}
+@media(max-width:650px){
+  .choice{min-height:0;grid-template-columns:32px 1fr;align-items:center}
+  .choice strong{grid-column:2}
+  .choice small{grid-column:2}
+  .choice-grid{grid-template-columns:1fr}
+  .filters{margin-top:26px}
+  .posts-feedback{padding:16px}
+}

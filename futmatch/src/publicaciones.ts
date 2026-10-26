@@ -14,6 +14,7 @@ export const categorias = {
   persona_busca_equipo: { label: 'Persona busca equipo', shortLabel: 'Busco equipo', icon: '●', color: '#e45072' },
   equipo_busca_jugadores: { label: 'Equipo busca jugadores', shortLabel: 'Buscamos jugadores', icon: '↻', color: '#6c4af2' },
   equipo_busca_rival: { label: 'Equipo busca rival', shortLabel: 'Buscamos rival', icon: '⚔', color: '#0aa878' },
+  busca_cancha: { label: 'Busco cancha', shortLabel: 'Busco cancha', icon: '▣', color: '#ef8b35' },
 } as const
 
 export type Categoria = keyof typeof categorias

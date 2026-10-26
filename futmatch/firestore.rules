@@ -1,7 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Cada jugador solo puede leer y modificar su propio perfil.
     match /usuarios/{uid} {
       function isOwner() {
         return request.auth != null && request.auth.uid == uid;
@@ -31,7 +30,7 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // Publicaciones de la comunidad, visibles para usuarios autenticados.
+    // Publicaciones visibles para usuarios con sesión activa.
     match /publicaciones/{postId} {
       function loggedIn() {
         return request.auth != null;
@@ -74,19 +73,9 @@ service cloud.firestore {
           && data.futbol in ['Fútbol 5', 'Fútbol 7', 'Fútbol 8', 'Fútbol 11']
           && data.nivel in ['Amateur', 'Intermedio', 'Avanzado']
           && data.fecha is string
-          && (data.fecha == '' || data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-))
+          && (data.fecha == '' || data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$'))
           && data.hora is string
-          && (data.hora == '' || data.hora.matches('^([01][0-9]|2[0-3]):[0-5][0-9]    match /{document=**} {
-      allow read, write: if false;
-    }
-  }
-}
-))
+          && (data.hora == '' || data.hora.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$'))
           && (data.categoria != 'equipo_busca_rival' || (data.fecha != '' && data.hora != ''))
           && data.estado == 'activa'
           && data.creadoEn == request.time;
@@ -100,11 +89,10 @@ service cloud.firestore {
         && request.resource.data.autorNombre ==
           get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombre;
 
-      // La edición, el cierre y la eliminación se incorporarán en otra etapa.
       allow update, delete: if false;
     }
 
-    // Las demás colecciones se mantienen cerradas al acceso de clientes.
+    // Las demás colecciones permanecen bloqueadas.
     match /{document=**} {
       allow read, write: if false;
     }

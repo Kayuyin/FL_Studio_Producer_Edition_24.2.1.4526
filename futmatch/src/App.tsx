@@ -5,7 +5,7 @@ import { auth } from './firebase'
 import AuthScreen from './AuthScreen'
 import { escucharPublicaciones } from './publicaciones'
 import type { Publicacion, Categoria } from './publicaciones'
-import { Home, Explore, Publish } from './Publicaciones'
+import { Home, Explore, Publish } from './VistasPublicaciones'
 import './App.css'
 
 type View = 'inicio' | 'explorar' | 'publicar' | 'matches' | 'mensajes' | 'perfil'

@@ -9,6 +9,7 @@ import {
 import { FirebaseError } from 'firebase/app'
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { auth, db } from './firebase'
+import { REGIONES_CHILE, obtenerComuna, obtenerRegion } from './territorioChile'
 import './AuthScreen.css'
 
 type Mode = 'login' | 'registro' | 'recuperar'
@@ -32,7 +33,10 @@ function readableError(error: unknown): string {
 export default function AuthScreen({ onNotice }: { onNotice: (message: string) => void }) {
   const [mode, setMode] = useState<Mode>('login')
   const [nombre, setNombre] = useState('')
-  const [comuna, setComuna] = useState('')
+  const [regionCodigo, setRegionCodigo] = useState('')
+  const [comunaCodigo, setComunaCodigo] = useState('')
+  const region = obtenerRegion(regionCodigo)
+  const comuna = obtenerComuna(regionCodigo, comunaCodigo)
   const [correo, setCorreo] = useState('')
   const [password, setPassword] = useState('')
   const [confirmacion, setConfirmacion] = useState('')
@@ -56,6 +60,7 @@ export default function AuthScreen({ onNotice }: { onNotice: (message: string) =
 
     if (mode === 'registro') {
       if (nombre.trim().length < 2) { setError('Escribe un nombre de al menos dos caracteres.'); return }
+      if (!region || !comuna) { setError('Selecciona una región y una comuna válida de Chile.'); return }
       if (password.length < 8) { setError('Usa una contraseña de al menos 8 caracteres.'); return }
       if (password !== confirmacion) { setError('Las contraseñas no coinciden.'); return }
     }
@@ -74,7 +79,10 @@ export default function AuthScreen({ onNotice }: { onNotice: (message: string) =
           await setDoc(doc(db, 'usuarios', account.user.uid), {
             nombre: nombre.trim(),
             correo: email,
-            comuna: comuna.trim(),
+            regionCodigo,
+            comunaCodigo,
+            region: region!.nombre,
+            comuna: comuna!.nombre,
             creadoEn: serverTimestamp(),
           })
           onNotice('¡Tu cuenta se creó correctamente! Bienvenido a FutMatch.')
@@ -111,8 +119,18 @@ export default function AuthScreen({ onNotice }: { onNotice: (message: string) =
             {mode === 'registro' && <>
               <label htmlFor="auth-nombre">Nombre y apellido</label>
               <input id="auth-nombre" autoComplete="name" maxLength={70} required value={nombre} onChange={(event) => setNombre(event.target.value)} placeholder="Ej: Camila Torres" />
-              <label htmlFor="auth-comuna">Comuna (opcional)</label>
-              <input id="auth-comuna" autoComplete="address-level2" maxLength={80} value={comuna} onChange={(event) => setComuna(event.target.value)} placeholder="Ej: La Florida" />
+              <label htmlFor="auth-region">Región</label>
+              <select id="auth-region" name="region" autoComplete="address-level1" required value={regionCodigo}
+                onChange={(event) => { setRegionCodigo(event.target.value); setComunaCodigo('') }}>
+                <option value="">Selecciona tu región</option>
+                {REGIONES_CHILE.map((item) => <option key={item.codigo} value={item.codigo}>{item.nombre}</option>)}
+              </select>
+              <label htmlFor="auth-comuna">Comuna</label>
+              <select id="auth-comuna" name="comuna" autoComplete="address-level2" required
+                disabled={!regionCodigo} value={comunaCodigo} onChange={(event) => setComunaCodigo(event.target.value)}>
+                <option value="">{regionCodigo ? 'Selecciona tu comuna' : 'Primero selecciona una región'}</option>
+                {region?.comunas.map((item) => <option key={item.codigo} value={item.codigo}>{item.nombre}</option>)}
+              </select>
             </>}
             <label htmlFor="auth-correo">Correo electrónico</label>
             <input id="auth-correo" type="email" autoComplete="email" required value={correo} onChange={(event) => setCorreo(event.target.value)} placeholder="tu@correo.cl" />

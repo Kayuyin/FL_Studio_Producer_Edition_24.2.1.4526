@@ -132,7 +132,7 @@ export function Explore({
     const term = search.trim().toLocaleLowerCase('es-CL')
     return publicaciones.filter((post) =>
       (filter === 'todos' || post.categoria === filter)
-      && (nivel === 'todos' || post.nivel === nivel)
+      && (filter === 'busca_cancha' || nivel === 'todos' || post.nivel === nivel)
       && (filter !== 'busca_cancha' || !comunaCancha || post.comuna === comunaCancha)
       && (!term || [post.titulo, post.descripcion, post.comuna, post.autorNombre, post.equipoNombre]
         .some((value) => value.toLocaleLowerCase('es-CL').includes(term))),
@@ -155,10 +155,10 @@ export function Explore({
         <option value="">Todas las comunas</option>
         {COMUNAS_RM.map((item) => <option key={item} value={item}>{item}</option>)}
       </select>}
-      <select aria-label="Filtrar por nivel" value={nivel} onChange={(event) => setNivel(event.target.value as Nivel | 'todos')}>
+      {filter !== 'busca_cancha' && <select aria-label="Filtrar por nivel" value={nivel} onChange={(event) => setNivel(event.target.value as Nivel | 'todos')}>
         <option value="todos">Cualquier nivel</option>
         {niveles.map((item) => <option key={item}>{item}</option>)}
-      </select>
+      </select>}
     </div>
     <div className="result-heading"><h2>{result.length} {result.length === 1 ? 'publicación encontrada' : 'publicaciones encontradas'}</h2><span className="muted">Más recientes primero</span></div>
     {result.length ? <div className="post-grid explore-grid">{result.map((post) => <PublicacionCard key={post.id} post={post} />)}</div> : <EstadoListado loading={loading} error={error} />}
@@ -269,7 +269,7 @@ export function Publish({
         {isCancha
           ? <label>¿En qué comuna buscas una cancha?
               <select value={comuna} onChange={(event) => setComuna(event.target.value)} required>
-                <option value="">Selecciona una comuna de Santiago</option>
+                <option value="">Selecciona una comuna de la Región Metropolitana</option>
                 {COMUNAS_RM.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
             </label>

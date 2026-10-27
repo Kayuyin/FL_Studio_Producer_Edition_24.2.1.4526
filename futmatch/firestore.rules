@@ -14,18 +14,64 @@ service cloud.firestore {
           && data.comuna.size() <= 80;
       }
 
+      // Catálogo validado por código CUT: 16 regiones y 346 comunas de Chile.
+      // Los textos de región y comuna también deben coincidir con el código.
+      function validTerritory(data) {
+        return data.regionCodigo is string
+          && data.comunaCodigo is string
+          && data.region is string
+          && data.comuna is string
+          && (
+          (data.regionCodigo == "01" && data.region == "Región de Tarapacá" &&
+           data.comunaCodigo + '|' + data.comuna in ["01402|Camiña", "01401|Pozo Almonte", "01404|Huara", "01107|Alto Hospicio", "01101|Iquique", "01405|Pica", "01403|Colchane"]) ||
+          (data.regionCodigo == "02" && data.region == "Región de Antofagasta" &&
+           data.comunaCodigo + '|' + data.comuna in ["02302|María Elena", "02103|Sierra Gorda", "02202|Ollagüe", "02301|Tocopilla", "02203|San Pedro de Atacama", "02201|Calama", "02104|Taltal", "02101|Antofagasta", "02102|Mejillones"]) ||
+          (data.regionCodigo == "03" && data.region == "Región de Atacama" &&
+           data.comunaCodigo + '|' + data.comuna in ["03102|Caldera", "03302|Alto del Carmen", "03101|Copiapó", "03103|Tierra Amarilla", "03301|Vallenar", "03304|Huasco", "03201|Chañaral", "03303|Freirina", "03202|Diego de Almagro"]) ||
+          (data.regionCodigo == "04" && data.region == "Región de Coquimbo" &&
+           data.comunaCodigo + '|' + data.comuna in ["04201|Illapel", "04104|La Higuera", "04202|Canela", "04203|Los Vilos", "04204|Salamanca", "04304|Punitaqui", "04301|Ovalle", "04105|Paihuano", "04103|Andacollo", "04302|Combarbalá", "04106|Vicuña", "04101|La Serena", "04102|Coquimbo", "04303|Monte Patria", "04305|Río Hurtado"]) ||
+          (data.regionCodigo == "05" && data.region == "Región de Valparaíso" &&
+           data.comunaCodigo + '|' + data.comuna in ["05401|La Ligua", "05804|Villa Alemana", "05704|Panquehue", "05705|Putaendo", "05304|San Esteban", "05802|Limache", "05701|San Felipe", "05501|Quillota", "05402|Cabildo", "05301|Los Andes", "05403|Papudo", "05302|Calle Larga", "05506|Nogales", "05602|Algarrobo", "05405|Zapallar", "05104|Juan Fernández", "05703|Llaillay", "05101|Valparaíso", "05606|Santo Domingo", "05706|Santa María", "05503|Hijuelas", "05103|Concón", "05603|Cartagena", "05601|San Antonio", "05504|La Cruz", "05109|Viña del Mar", "05107|Quintero", "05605|El Tabo", "05102|Casablanca", "05303|Rinconada", "05801|Quilpué", "05702|Catemu", "05404|Petorca", "05803|Olmué", "05604|El Quisco", "05105|Puchuncaví", "05201|Isla de Pascua", "05502|Calera"]) ||
+          (data.regionCodigo == "06" && data.region == "Región del Libertador Bernardo O'Higgins" &&
+           data.comunaCodigo + '|' + data.comuna in ["06109|Malloa", "06117|San Vicente", "06305|Nancagua", "06110|Mostazal", "06306|Palmilla", "06205|Navidad", "06115|Rengo", "06308|Placilla", "06304|Lolol", "06307|Peralillo", "06112|Peumo", "06104|Coltauco", "06111|Olivar", "06105|Doñihue", "06102|Codegua", "06303|Chimbarongo", "06201|Pichilemu", "06302|Chépica", "06204|Marchigüe", "06203|Litueche", "06101|Rancagua", "06106|Graneros", "06103|Coinco", "06114|Quinta de Tilcoco", "06113|Pichidegua", "06108|Machalí", "06202|La Estrella", "06301|San Fernando", "06107|Las Cabras", "06309|Pumanque", "06206|Paredones", "06116|Requínoa", "06310|Santa Cruz"]) ||
+          (data.regionCodigo == "07" && data.region == "Región del Maule" &&
+           data.comunaCodigo + '|' + data.comuna in ["07408|Yerbas Buenas", "07105|Maule", "07110|San Rafael", "07106|Pelarco", "07304|Molina", "07202|Chanco", "07405|Retiro", "07309|Vichuquén", "07203|Pelluhue", "07404|Parral", "07103|Curepto", "07401|Linares", "07301|Curicó", "07101|Talca", "07201|Cauquenes", "07104|Empedrado", "07308|Teno", "07403|Longaví", "07406|San Javier", "07307|Sagrada Familia", "07108|Río Claro", "07107|Pencahue", "07402|Colbún", "07109|San Clemente", "07407|Villa Alegre", "07302|Hualañé", "07303|Licantén", "07102|Constitución", "07305|Rauco", "07306|Romeral"]) ||
+          (data.regionCodigo == "08" && data.region == "Región del Bío-Bío" &&
+           data.comunaCodigo + '|' + data.comuna in ["08204|Contulmo", "08203|Cañete", "08305|Mulchén", "08308|Quilaco", "08309|Quilleco", "08205|Curanilahue", "08302|Antuco", "08103|Chiguayante", "08206|Los Alamos", "08207|Tirúa", "08104|Florida", "08111|Tomé", "08112|Hualpén", "08301|Los Ángeles", "08306|Nacimiento", "08106|Lota", "08101|Concepción", "08310|San Rosendo", "08108|San Pedro de la Paz", "08201|Lebu", "08109|Santa Juana", "08313|Yumbel", "08307|Negrete", "08202|Arauco", "08303|Cabrero", "08107|Penco", "08314|Alto Biobío", "08102|Coronel", "08304|Laja", "08110|Talcahuano", "08105|Hualqui", "08312|Tucapel", "08311|Santa Bárbara"]) ||
+          (data.regionCodigo == "09" && data.region == "Región de La Araucanía" &&
+           data.comunaCodigo + '|' + data.comuna in ["09209|Renaico", "09202|Collipulli", "09115|Pucón", "09117|Teodoro Schmidt", "09101|Temuco", "09110|Melipeuco", "09118|Toltén", "09107|Gorbea", "09103|Cunco", "09210|Traiguén", "09205|Lonquimay", "09102|Carahue", "09121|Cholchol", "09109|Loncoche", "09206|Los Sauces", "09106|Galvarino", "09104|Curarrehue", "09204|Ercilla", "09201|Angol", "09105|Freire", "09207|Lumaco", "09111|Nueva Imperial", "09116|Saavedra", "09120|Villarrica", "09211|Victoria", "09208|Purén", "09112|Padre Las Casas", "09203|Curacautín", "09114|Pitrufquén", "09113|Perquenco", "09119|Vilcún", "09108|Lautaro"]) ||
+          (data.regionCodigo == "10" && data.region == "Región de Los Lagos" &&
+           data.comunaCodigo + '|' + data.comuna in ["10102|Calbuco", "10208|Quellón", "10402|Futaleufú", "10108|Maullín", "10403|Hualaihué", "10304|Puyehue", "10104|Fresia", "10306|San Juan de la Costa", "10109|Puerto Varas", "10301|Osorno", "10305|Río Negro", "10307|San Pablo", "10201|Castro", "10103|Cochamó", "10101|Puerto Montt", "10105|Frutillar", "10209|Quemchi", "10203|Chonchi", "10202|Ancud", "10302|Puerto Octay", "10204|Curaco de Vélez", "10206|Puqueldón", "10106|Los Muermos", "10107|Llanquihue", "10205|Dalcahue", "10404|Palena", "10303|Purranque", "10210|Quinchao", "10207|Queilén", "10401|Chaitén"]) ||
+          (data.regionCodigo == "11" && data.region == "Región de Aysén del Gral.Ibañez del Campo" &&
+           data.comunaCodigo + '|' + data.comuna in ["11101|Coyhaique", "11303|Tortel", "11402|Río Ibáñez", "11302|O'Higgins", "11201|Aysén", "11301|Cochrane", "11203|Guaitecas", "11202|Cisnes", "11401|Chile Chico", "11102|Lago Verde"]) ||
+          (data.regionCodigo == "12" && data.region == "Región de Magallanes y Antártica Chilena" &&
+           data.comunaCodigo + '|' + data.comuna in ["12402|Torres del Paine", "12302|Primavera", "12303|Timaukel", "12401|Natales", "12101|Punta Arenas", "12102|Laguna Blanca", "12301|Porvenir", "12201|Cabo de Hornos", "12103|Río Verde", "12104|San Gregorio", "12202|Antártica"]) ||
+          (data.regionCodigo == "13" && data.region == "Región Metropolitana de Santiago" &&
+           data.comunaCodigo + '|' + data.comuna in ["13125|Quilicura", "13115|Lo Barnechea", "13130|San Miguel", "13601|Talagante", "13203|San José de Maipo", "13121|Pedro Aguirre Cerda", "13126|Quinta Normal", "13102|Cerrillos", "13503|Curacaví", "13302|Lampa", "13122|Peñalolén", "13604|Padre Hurtado", "13132|Vitacura", "13603|Isla de Maipo", "13119|Maipú", "13128|Renca", "13131|San Ramón", "13117|Lo Prado", "13106|Estación Central", "13404|Paine", "13129|San Joaquín", "13108|Independencia", "13103|Cerro Navia", "13107|Huechuraba", "13303|Tiltil", "13104|Conchalí", "13123|Providencia", "13114|Las Condes", "13605|Peñaflor", "13201|Puente Alto", "13504|María Pinto", "13502|Alhué", "13109|La Cisterna", "13101|Santiago", "13118|Macul", "13105|El Bosque", "13403|Calera de Tango", "13127|Recoleta", "13120|Ñuñoa", "13505|San Pedro", "13124|Pudahuel", "13602|El Monte", "13501|Melipilla", "13202|Pirque", "13402|Buin", "13401|San Bernardo", "13301|Colina", "13111|La Granja", "13110|La Florida", "13112|La Pintana", "13113|La Reina", "13116|Lo Espejo"]) ||
+          (data.regionCodigo == "14" && data.region == "Región de Los Ríos" &&
+           data.comunaCodigo + '|' + data.comuna in ["14101|Valdivia", "14103|Lanco", "14201|La Unión", "14102|Corral", "14104|Los Lagos", "14107|Paillaco", "14202|Futrono", "14203|Lago Ranco", "14108|Panguipulli", "14204|Río Bueno", "14105|Máfil", "14106|Mariquina"]) ||
+          (data.regionCodigo == "15" && data.region == "Región de Arica y Parinacota" &&
+           data.comunaCodigo + '|' + data.comuna in ["15102|Camarones", "15201|Putre", "15202|General Lagos", "15101|Arica"]) ||
+          (data.regionCodigo == "16" && data.region == "Región de Ñuble" &&
+           data.comunaCodigo + '|' + data.comuna in ["16106|Pinto", "16206|Ranquil", "16109|Yungay", "16303|Ñiquén", "16102|Bulnes", "16103|Chillán Viejo", "16108|San Ignacio", "16302|Coihueco", "16305|San Nicolás", "16104|El Carmen", "16107|Quillón", "16203|Coelemu", "16105|Pemuco", "16205|Portezuelo", "16101|Chillán", "16204|Ninhue", "16207|Treguaco", "16304|San Fabián", "16202|Cobquecura", "16201|Quirihue", "16301|San Carlos"])
+          );
+      }
+
       allow get: if isOwner();
       allow list: if false;
 
       allow create: if isOwner()
-        && request.resource.data.keys().hasOnly(['nombre', 'correo', 'comuna', 'creadoEn'])
-        && request.resource.data.keys().hasAll(['nombre', 'correo', 'comuna', 'creadoEn'])
+        && request.resource.data.keys().hasOnly(['nombre', 'correo', 'region', 'regionCodigo', 'comuna', 'comunaCodigo', 'creadoEn'])
+        && request.resource.data.keys().hasAll(['nombre', 'correo', 'region', 'regionCodigo', 'comuna', 'comunaCodigo', 'creadoEn'])
         && validNameAndCommune(request.resource.data)
+        && validTerritory(request.resource.data)
         && request.resource.data.correo == request.auth.token.email
         && request.resource.data.creadoEn == request.time;
 
+      // Edición de nombre únicamente por ahora; comuna/región se actualizarán
+      // con un formulario controlado en una etapa posterior.
       allow update: if isOwner()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre', 'comuna'])
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre'])
         && validNameAndCommune(request.resource.data);
       allow delete: if false;
     }

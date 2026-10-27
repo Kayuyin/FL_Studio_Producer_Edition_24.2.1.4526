@@ -6,7 +6,10 @@
  * Snapshot consultado el 26-10-2026. No se requiere Internet para llenar el formulario.
  * Mantener al actualizar la división político-administrativa.
  */
-export const REGIONES_CHILE = [
+export type ComunaChile = { readonly codigo: string; readonly nombre: string }
+export type RegionChile = { readonly codigo: string; readonly nombre: string; readonly comunas: readonly ComunaChile[] }
+
+export const REGIONES_CHILE: readonly RegionChile[] = [
   {
     "codigo": "01",
     "nombre": "Región de Tarapacá",

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { User } from 'firebase/auth'
 import { categorias, crearPublicacion } from './publicaciones'
+import { COMUNAS_RM, esComunaRM } from './comunas'
 import type { Categoria, Nivel, NuevaPublicacion, Publicacion, TipoFutbol } from './publicaciones'
 
 const tipos = Object.keys(categorias) as Categoria[]
@@ -19,6 +20,10 @@ const opciones = {
   equipo_busca_rival: {
     description: 'Un equipo busca otro equipo para jugar',
     example: 'Ej: Buscamos rival para el domingo',
+  },
+  busca_cancha: {
+    description: 'Indica en qué comuna necesitas una cancha',
+    example: 'Ej: Busco cancha de fútbol 7 para el sábado',
   },
 } as const
 
@@ -60,7 +65,7 @@ function PublicacionCard({ post }: { post: Publicacion }) {
       <span>⚽ {post.futbol}</span>
     </div>
     <div className="card-footer">
-      <span className="level">{post.nivel}</span>
+      <span className="level">{post.categoria === 'busca_cancha' ? 'Solicitud de cancha' : post.nivel}</span>
       <span className="publication-active">● Publicación activa</span>
     </div>
   </article>
@@ -78,12 +83,13 @@ export function Home({
   const personas = publicaciones.filter((post) => post.categoria === 'persona_busca_equipo').length
   const refuerzos = publicaciones.filter((post) => post.categoria === 'equipo_busca_jugadores').length
   const rivales = publicaciones.filter((post) => post.categoria === 'equipo_busca_rival').length
+  const canchas = publicaciones.filter((post) => post.categoria === 'busca_cancha').length
   return <div className="page">
     <section className="welcome">
       <div>
         <p className="eyebrow">{new Intl.DateTimeFormat('es-CL', { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date()).toUpperCase()}</p>
         <h1>Hola, {name.split(' ')[0]} <span>👋</span></h1>
-        <p className="muted">Encuentra jugadores, equipos y rivales cerca de ti.</p>
+        <p className="muted">Encuentra jugadores, equipos, rivales y canchas cerca de ti.</p>
       </div>
       <button className="primary-button" onClick={() => onNavigate('publicar')}>＋ Crear publicación</button>
     </section>
@@ -105,6 +111,7 @@ export function Home({
       <div><strong>{personas}</strong><span>Personas buscan<br />equipo</span></div>
       <div><strong>{refuerzos}</strong><span>Equipos buscan<br />jugadores</span></div>
       <div><strong>{rivales}</strong><span>Equipos buscan<br />rival</span></div>
+      <div><strong>{canchas}</strong><span>Personas buscan<br />cancha</span></div>
     </section>
   </div>
 }
@@ -120,21 +127,23 @@ export function Explore({
 }) {
   const [search, setSearch] = useState('')
   const [nivel, setNivel] = useState<Nivel | 'todos'>('todos')
+  const [comunaCancha, setComunaCancha] = useState('')
   const result = useMemo(() => {
     const term = search.trim().toLocaleLowerCase('es-CL')
     return publicaciones.filter((post) =>
       (filter === 'todos' || post.categoria === filter)
-      && (nivel === 'todos' || post.nivel === nivel)
+      && (filter === 'busca_cancha' || nivel === 'todos' || post.nivel === nivel)
+      && (filter !== 'busca_cancha' || !comunaCancha || post.comuna === comunaCancha)
       && (!term || [post.titulo, post.descripcion, post.comuna, post.autorNombre, post.equipoNombre]
         .some((value) => value.toLocaleLowerCase('es-CL').includes(term))),
     )
-  }, [publicaciones, filter, search, nivel])
+  }, [publicaciones, filter, search, nivel, comunaCancha])
 
   return <div className="page">
     <div className="page-heading"><div>
       <p className="eyebrow">DESCUBRE OPORTUNIDADES</p>
       <h1>Explorar publicaciones</h1>
-      <p className="muted">Encuentra jugadores, equipos y rivales según lo que necesites.</p>
+      <p className="muted">Encuentra jugadores, equipos, rivales y solicitudes de canchas.</p>
     </div></div>
     <div className="filters" role="group" aria-label="Filtrar por categoría">
       <button className={filter === 'todos' ? 'selected' : ''} aria-pressed={filter === 'todos'} onClick={() => setFilter('todos')}>Todas</button>
@@ -142,10 +151,14 @@ export function Explore({
     </div>
     <div className="filter-row">
       <label className="search-box" aria-label="Buscar publicaciones">⌕ <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por comuna, nombre o publicación" /></label>
-      <select aria-label="Filtrar por nivel" value={nivel} onChange={(event) => setNivel(event.target.value as Nivel | 'todos')}>
+      {filter === 'busca_cancha' && <select aria-label="Filtrar canchas por comuna" value={comunaCancha} onChange={(event) => setComunaCancha(event.target.value)}>
+        <option value="">Todas las comunas</option>
+        {COMUNAS_RM.map((item) => <option key={item} value={item}>{item}</option>)}
+      </select>}
+      {filter !== 'busca_cancha' && <select aria-label="Filtrar por nivel" value={nivel} onChange={(event) => setNivel(event.target.value as Nivel | 'todos')}>
         <option value="todos">Cualquier nivel</option>
         {niveles.map((item) => <option key={item}>{item}</option>)}
-      </select>
+      </select>}
     </div>
     <div className="result-heading"><h2>{result.length} {result.length === 1 ? 'publicación encontrada' : 'publicaciones encontradas'}</h2><span className="muted">Más recientes primero</span></div>
     {result.length ? <div className="post-grid explore-grid">{result.map((post) => <PublicacionCard key={post.id} post={post} />)}</div> : <EstadoListado loading={loading} error={error} />}
@@ -169,7 +182,8 @@ export function Publish({
   const [hora, setHora] = useState('')
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
-  const isEquipo = categoria !== 'persona_busca_equipo'
+  const isEquipo = categoria === 'equipo_busca_jugadores' || categoria === 'equipo_busca_rival'
+  const isCancha = categoria === 'busca_cancha'
   const today = new Date()
   const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
@@ -178,6 +192,10 @@ export function Publish({
     setError('')
     if (titulo.trim().length < 5 || descripcion.trim().length < 15 || comuna.trim().length < 2) {
       setError('Completa el título, la descripción (mínimo 15 caracteres) y la comuna.')
+      return
+    }
+    if (isCancha && !esComunaRM(comuna)) {
+      setError('Selecciona una comuna de la Región Metropolitana donde necesitas la cancha.')
       return
     }
     if (isEquipo && equipoNombre.trim().length < 2) {
@@ -248,16 +266,25 @@ export function Publish({
         <textarea value={descripcion} onChange={(event) => setDescripcion(event.target.value)} maxLength={1200} minLength={15} required placeholder="Cuenta qué buscas, posición, horarios o detalles del partido..." rows={4} />
       </label>
       <div className="form-columns">
-        <label>Comuna o ciudad<input value={comuna} onChange={(event) => setComuna(event.target.value)} maxLength={80} minLength={2} required placeholder="Ej: La Florida" /></label>
+        {isCancha
+          ? <label>¿En qué comuna buscas una cancha?
+              <select value={comuna} onChange={(event) => setComuna(event.target.value)} required>
+                <option value="">Selecciona una comuna de la Región Metropolitana</option>
+                {COMUNAS_RM.map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </label>
+          : <label>Comuna o ciudad
+              <input value={comuna} onChange={(event) => setComuna(event.target.value)} maxLength={80} minLength={2} required placeholder="Ej: La Florida" />
+            </label>}
         <label>Tipo de fútbol
           <select value={futbol} onChange={(event) => setFutbol(event.target.value as TipoFutbol)}>
             {opcionesFutbol.map((item) => <option key={item}>{item}</option>)}
           </select>
         </label>
       </div>
-      <label>Nivel de juego
+      {!isCancha && <label>Nivel de juego
         <select value={nivel} onChange={(event) => setNivel(event.target.value as Nivel)}>{niveles.map((item) => <option key={item}>{item}</option>)}</select>
-      </label>
+      </label>}
       <div className="form-columns">
         <label>Fecha {categoria === 'equipo_busca_rival' ? '' : '(opcional)'}
           <input type="date" min={minDate} required={categoria === 'equipo_busca_rival'} value={fecha} onChange={(event) => setFecha(event.target.value)} />

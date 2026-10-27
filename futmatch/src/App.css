@@ -27,3 +27,18 @@
   .filters{margin-top:26px}
   .posts-feedback{padding:16px}
 }
+
+/* Cuatro tipos de publicación, incluida búsqueda de cancha */
+.choice-grid{grid-template-columns:repeat(4,minmax(0,1fr))}
+.choice{min-width:0}
+.choice strong,.choice small{overflow-wrap:anywhere}
+.quick-stats{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:15px}
+.quick-stats>div{min-width:0}
+@media(max-width:1050px){
+  .choice-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .quick-stats{grid-template-columns:repeat(2,minmax(0,1fr))}
+}
+@media(max-width:650px){
+  .choice-grid{grid-template-columns:1fr}
+  .quick-stats{grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}
+}

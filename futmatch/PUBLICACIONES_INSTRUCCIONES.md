@@ -7,8 +7,11 @@ Esta versión reemplaza las cuatro tarjetas demostrativas por publicaciones real
 - **Persona busca equipo**: un jugador que quiere incorporarse a un equipo.
 - **Equipo busca jugadores**: un equipo que necesita refuerzos.
 - **Equipo busca rival**: un equipo que quiere disputar un encuentro contra otro.
+- **Busco cancha**: un jugador o equipo publica en qué comuna de la Región Metropolitana necesita una cancha. Esta opción presenta una lista de las 52 comunas y se filtra desde Explorar; por ahora es una solicitud de cancha, no un sistema de disponibilidad ni reservas.
 
 La sección **Explorar publicaciones** permite filtrar por categoría y nivel, y buscar por título, descripción, comuna o nombre. Muestra primero las publicaciones más recientes. El inicio muestra hasta tres de las últimas y el recuento real por categoría.
+
+Para solicitudes de cancha, la comuna se selecciona desde un menú desplegable. Las otras categorías mantienen el campo libre de comuna o ciudad. Lista de comunas basada en el [Gobierno de Santiago](https://munilab52.gobiernosantiago.cl/ecosistema-regional/).
 
 ## Activación (obligatoria)
 
@@ -23,6 +26,8 @@ La sección **Explorar publicaciones** permite filtrar por categoría y nivel, y
 - Crear una publicación de **Persona busca equipo**, sin nombre de equipo, sin fecha/hora y comprobar que aparece en su categoría.
 - Crear una publicación de **Equipo busca jugadores**, agregando nombre del equipo.
 - Crear **Equipo busca rival** con nombre del equipo, fecha y hora propuestas.
+- Crear **Busco cancha**, seleccionar una comuna desde la lista y verificar que se muestra en la categoría correspondiente.
+- En Explorar, seleccionar **Busco cancha** y filtrar por otra comuna; comprobar que solo se muestran solicitudes de dicha comuna.
 - Filtrar en Explorar por las tres categorías; comprobar que ninguna se mezcla con las otras.
 - Buscar por comuna, título y nombre de equipo; filtrar por nivel.
 - Recargar la página, cerrar e iniciar sesión; comprobar que las publicaciones siguen disponibles.

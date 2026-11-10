@@ -4,7 +4,7 @@ import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import AuthScreen from './AuthScreen'
-import { escucharPublicaciones } from './publicaciones'
+import { escucharPublicaciones, eliminarPublicacion } from './publicaciones'
 import type { Publicacion, Categoria } from './publicaciones'
 import { Home, Explore, Publish } from './VistasPublicaciones'
 import { observarSolicitudes, solicitarParticipacion } from './solicitudes'
@@ -106,6 +106,14 @@ function Dashboard({
     setLocalNotice('Solicitud enviada. El autor puede aceptarla desde Matches.')
   }
 
+  async function onDelete(post: Publicacion) {
+    if (post.autorUid !== user.uid) {
+      throw new Error('Solo puedes eliminar tus propias publicaciones.')
+    }
+    await eliminarPublicacion(post.id)
+    setLocalNotice('Tu publicación se eliminó correctamente.')
+  }
+
   function openChat(id: string) {
     setSelectedChatId(id)
     goTo('mensajes')
@@ -158,10 +166,10 @@ function Dashboard({
       </div>}
       {view === 'inicio' && <Home name={displayName} onNavigate={goTo}
         publicaciones={publicaciones} loading={postsLoading} error={postsError}
-        userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} />}
+        userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />}
       {view === 'explorar' && <Explore publicaciones={publicaciones} filter={filter} setFilter={setFilter}
         loading={postsLoading} error={postsError}
-        userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} />}
+        userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />}
       {view === 'publicar' && <Publish user={user} nombreAutor={displayName} onCreated={afterPublish} />}
       {view === 'matches' && <Matches user={user} solicitudes={solicitudes} loading={requestsLoading}
         error={requestsError} onOpenChat={openChat} />}

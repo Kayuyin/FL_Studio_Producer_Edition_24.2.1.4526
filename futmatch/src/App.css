@@ -107,3 +107,15 @@
   .profile-edit-card{padding:18px}
   .request-item{padding:16px}
 }
+
+/* Control de publicaciones propias */
+.owner-actions{display:flex;align-items:center;flex-wrap:wrap;justify-content:flex-end;gap:9px}
+.delete-post-button{border:1px solid #ffc7c7;color:#a9343c;background:#fff5f5;border-radius:7px;padding:8px 11px;font-size:11px;font-weight:700;cursor:pointer}
+.delete-post-button:hover,.delete-post-button:focus-visible{background:#ffe9e9}
+.delete-post-confirm{border:0;background:#ae2733;color:#fff;border-radius:8px;padding:10px 14px;font-size:12px;font-weight:700;cursor:pointer}
+.delete-post-confirm:hover{background:#90202a}
+.delete-post-button:disabled,.delete-post-confirm:disabled{opacity:.6;cursor:wait}
+.post-delete-confirm{margin-top:13px;border:1px solid #ffd1d1;border-radius:10px;background:#fff7f7;padding:13px}
+.post-delete-confirm p{color:#71353b;font-size:12px;line-height:1.55;margin:0 0 11px;overflow-wrap:anywhere}
+.post-delete-actions{display:flex;gap:9px;flex-wrap:wrap}
+@media(max-width:650px){.owner-actions{gap:6px}.post-delete-confirm{padding:11px}}

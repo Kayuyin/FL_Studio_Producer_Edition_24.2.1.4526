@@ -43,3 +43,23 @@ Para solicitudes de cancha, la comuna se selecciona desde un menú desplegable. 
 - La base de datos solo permite leer publicaciones a usuarios autenticados. No almacenar teléfonos o información privada en las descripciones.
 
 Estas tareas deben probarse en Firebase real antes de presentar una demo como funcional.
+
+
+## Eliminar publicaciones propias
+
+Desde **Inicio** o **Explorar**, en las tarjetas que pertenecen al usuario autenticado se muestra **Eliminar**. Al seleccionarlo se abre una confirmación con **Sí, eliminar** y **Cancelar**. Solo se elimina después de confirmar.
+
+La operación elimina el documento `publicaciones/{id}` de Cloud Firestore. La lista se actualiza en tiempo real; el documento deja de aparecer en Inicio y Explorar.
+
+**Importante:** actualizar las reglas de Firebase Console → Firestore Database → Reglas usando la versión completa de `futmatch/firestore.rules` y presionar **Publicar**; el permiso `delete` solo se concede cuando `resource.data.autorUid == request.auth.uid`.
+
+**Solicitudes y conversaciones:** Firestore no elimina automáticamente los documentos de `solicitudes` ni sus mensajes cuando se borra una publicación. Las solicitudes ya creadas y los chats aceptados se mantienen en esta versión; no se pueden iniciar solicitudes nuevas sobre la publicación eliminada.
+
+### Pruebas de aceptación
+1. Iniciar sesión con la cuenta que creó una publicación. Verificar que ve el botón Eliminar en su tarjeta, tanto en Inicio como en Explorar.
+2. Pulsar **Eliminar → Cancelar** y comprobar que la publicación permanece.
+3. Pulsar **Eliminar → Sí, eliminar** y verificar que desaparece de ambas vistas y de `Firestore → publicaciones`.
+4. Iniciar sesión con otra cuenta. Verificar que no ve Eliminar en publicaciones ajenas y que un intento directo de borrar un documento ajeno recibe `permission-denied`.
+5. Confirmar que el formulario de creación, categorías y Matches siguen funcionando.
+
+La eliminación no se puede deshacer.

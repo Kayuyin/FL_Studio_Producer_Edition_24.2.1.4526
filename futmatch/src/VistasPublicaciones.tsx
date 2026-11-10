@@ -43,14 +43,17 @@ function EstadoListado({ loading, error }: { loading: boolean; error: string }) 
 }
 
 function PublicacionCard({
-  post, userUid, solicitudes, onInterest,
+  post, userUid, solicitudes, onInterest, onDelete,
 }: {
   post: Publicacion
   userUid: string
   solicitudes: Solicitud[]
   onInterest: (post: Publicacion) => Promise<void>
+  onDelete: (post: Publicacion) => Promise<void>
 }) {
   const [sending, setSending] = useState(false)
+  const [deleting, setDeleting] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [error, setError] = useState('')
   const alreadySent = solicitudes.find((item) =>
     item.publicacionId === post.id && item.interesadoUid === userUid)
@@ -62,6 +65,19 @@ function PublicacionCard({
     catch { setError('No se pudo enviar tu solicitud. Revisa tu conexión y las reglas de Firestore.') }
     finally { setSending(false) }
   }
+  async function removeOwnPost() {
+    if (deleting || post.autorUid !== userUid) return
+    setDeleting(true)
+    setError('')
+    try {
+      await onDelete(post)
+    } catch {
+      setError('No se pudo eliminar la publicación. Revisa tu conexión y los permisos de Firestore.')
+      setDeleting(false)
+      setConfirmDelete(false)
+    }
+  }
+
   const category = categorias[post.categoria]
   const autor = post.equipoNombre || post.autorNombre
   const initials = autor.split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('')
@@ -87,7 +103,13 @@ function PublicacionCard({
     <div className="card-footer">
       <span className="level">{post.categoria === 'busca_cancha' ? 'Solicitud de cancha' : post.nivel}</span>
       {post.autorUid === userUid
-        ? <span className="publication-active">Tu publicación</span>
+        ? <div className="owner-actions">
+            <span className="publication-active">Tu publicación</span>
+            <button type="button" className="delete-post-button"
+              disabled={deleting} onClick={() => setConfirmDelete((value) => !value)}>
+              Eliminar
+            </button>
+          </div>
         : <button type="button" className="interest-button"
             disabled={!!alreadySent || sending} onClick={() => { void interest() }}>
             {sending ? 'Enviando…' : alreadySent
@@ -97,12 +119,21 @@ function PublicacionCard({
               : '♡ Me interesa'}
           </button>}
     </div>
+    {confirmDelete && post.autorUid === userUid && <div className="post-delete-confirm" role="group" aria-label="Confirmar eliminación">
+      <p>¿Quieres eliminar «{post.titulo}»? Esta acción no se puede deshacer. Las conversaciones que ya se iniciaron se conservarán.</p>
+      <div className="post-delete-actions">
+        <button type="button" className="delete-post-confirm" disabled={deleting} onClick={() => { void removeOwnPost() }}>
+          {deleting ? 'Eliminando…' : 'Sí, eliminar'}
+        </button>
+        <button type="button" className="secondary-button" disabled={deleting} onClick={() => setConfirmDelete(false)}>Cancelar</button>
+      </div>
+    </div>}
     {error && <p role="alert" className="posts-feedback posts-error">{error}</p>}
   </article>
 }
 
 export function Home({
-  name, onNavigate, publicaciones, loading, error, userUid, solicitudes, onInterest,
+  name, onNavigate, publicaciones, loading, error, userUid, solicitudes, onInterest, onDelete,
 }: {
   name: string
   onNavigate: (view: 'explorar' | 'publicar') => void
@@ -112,6 +143,7 @@ export function Home({
   userUid: string
   solicitudes: Solicitud[]
   onInterest: (post: Publicacion) => Promise<void>
+  onDelete: (post: Publicacion) => Promise<void>
 }) {
   const personas = publicaciones.filter((post) => post.categoria === 'persona_busca_equipo').length
   const refuerzos = publicaciones.filter((post) => post.categoria === 'equipo_busca_jugadores').length
@@ -139,7 +171,7 @@ export function Home({
       <div><h2>Últimas publicaciones</h2><p className="muted">Convocatorias de la comunidad FutMatch</p></div>
       <button className="text-button" onClick={() => onNavigate('explorar')}>Ver todas <span>→</span></button>
     </section>
-    {publicaciones.length ? <div className="post-grid">{publicaciones.slice(0, 3).map((post) => <PublicacionCard key={post.id} post={post} userUid={userUid} solicitudes={solicitudes} onInterest={onInterest} />)}</div> : <EstadoListado loading={loading} error={error} />}
+    {publicaciones.length ? <div className="post-grid">{publicaciones.slice(0, 3).map((post) => <PublicacionCard key={post.id} post={post} userUid={userUid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />)}</div> : <EstadoListado loading={loading} error={error} />}
     <section className="quick-stats" aria-label="Publicaciones por categoría">
       <div><strong>{personas}</strong><span>Personas buscan<br />equipo</span></div>
       <div><strong>{refuerzos}</strong><span>Equipos buscan<br />jugadores</span></div>
@@ -150,7 +182,7 @@ export function Home({
 }
 
 export function Explore({
-  publicaciones, filter, setFilter, loading, error, userUid, solicitudes, onInterest,
+  publicaciones, filter, setFilter, loading, error, userUid, solicitudes, onInterest, onDelete,
 }: {
   publicaciones: Publicacion[]
   filter: Categoria | 'todos'
@@ -160,6 +192,7 @@ export function Explore({
   userUid: string
   solicitudes: Solicitud[]
   onInterest: (post: Publicacion) => Promise<void>
+  onDelete: (post: Publicacion) => Promise<void>
 }) {
   const [search, setSearch] = useState('')
   const [nivel, setNivel] = useState<Nivel | 'todos'>('todos')
@@ -197,7 +230,7 @@ export function Explore({
       </select>}
     </div>
     <div className="result-heading"><h2>{result.length} {result.length === 1 ? 'publicación encontrada' : 'publicaciones encontradas'}</h2><span className="muted">Más recientes primero</span></div>
-    {result.length ? <div className="post-grid explore-grid">{result.map((post) => <PublicacionCard key={post.id} post={post} userUid={userUid} solicitudes={solicitudes} onInterest={onInterest} />)}</div> : <EstadoListado loading={loading} error={error} />}
+    {result.length ? <div className="post-grid explore-grid">{result.map((post) => <PublicacionCard key={post.id} post={post} userUid={userUid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />)}</div> : <EstadoListado loading={loading} error={error} />}
   </div>
 }
 

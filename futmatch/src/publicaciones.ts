@@ -1,6 +1,8 @@
 import {
   addDoc,
   collection,
+  deleteDoc,
+  doc,
   limit,
   onSnapshot,
   orderBy,
@@ -83,4 +85,9 @@ export async function crearPublicacion(datos: NuevaPublicacion): Promise<void> {
     estado: 'activa',
     creadoEn: serverTimestamp(),
   })
+}
+
+/** Borra el documento. Las reglas Firestore comprueban que sea su autor. */
+export async function eliminarPublicacion(id: string): Promise<void> {
+  await deleteDoc(doc(db, 'publicaciones', id))
 }

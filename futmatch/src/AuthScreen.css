@@ -24,3 +24,8 @@
 .auth-form select{background:#fff;color:#342e43;border:1px solid #ddd9ea;border-radius:10px;padding:12px 15px;margin:0 0 19px;min-height:45px;width:100%;font-size:14px;outline:none;max-width:100%;}
 .auth-form select:focus{border-color:#7048f5;box-shadow:0 0 0 3px #7048f51a}
 .auth-form select:disabled{background:#f1f0f5;color:#8d889a;cursor:not-allowed}
+
+/* Registro por tipo de cuenta y descripción inicial */
+.auth-form textarea{background:#fff;color:#342e43;border:1px solid #ddd9ea;border-radius:10px;padding:12px 15px;margin:0 0 19px;min-height:88px;width:100%;max-width:100%;resize:vertical;font:400 14px 'DM Sans',sans-serif;outline:none}
+.auth-form textarea:focus{border-color:#7048f5;box-shadow:0 0 0 3px #7048f51a}
+.auth-type-hint{font-size:12px;line-height:1.5;color:#777286;margin:-10px 0 16px}

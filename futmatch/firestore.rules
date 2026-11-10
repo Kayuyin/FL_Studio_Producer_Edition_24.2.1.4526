@@ -68,11 +68,27 @@ service cloud.firestore {
         && request.resource.data.correo == request.auth.token.email
         && request.resource.data.creadoEn == request.time;
 
-      // Edición de nombre únicamente por ahora; comuna/región se actualizarán
-      // con un formulario controlado en una etapa posterior.
+      function validSportProfile(data) {
+        return (!('bio' in data) || (data.bio is string && data.bio.size() <= 350))
+          && (!('posicion' in data) || data.posicion in [
+            '', 'Arquero', 'Defensa', 'Mediocampista', 'Delantero', 'Polifuncional'
+          ])
+          && (!('nivel' in data) || data.nivel in ['', 'Amateur', 'Intermedio', 'Avanzado'])
+          && (!('disponibilidad' in data) || data.disponibilidad in [
+            '', 'Entre semana', 'Fines de semana', 'Flexible'
+          ]);
+      }
+
+      // Solo el titular edita su nombre, ubicación y datos deportivos.
+      // Correo, UID y fecha de creación no son modificables desde el cliente.
       allow update: if isOwner()
-        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['nombre'])
-        && validNameAndCommune(request.resource.data);
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+          'nombre', 'region', 'regionCodigo', 'comuna', 'comunaCodigo',
+          'bio', 'posicion', 'nivel', 'disponibilidad'
+        ])
+        && validNameAndCommune(request.resource.data)
+        && validTerritory(request.resource.data)
+        && validSportProfile(request.resource.data);
       allow delete: if false;
     }
 
@@ -139,6 +155,97 @@ service cloud.firestore {
           get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombre;
 
       allow update, delete: if false;
+    }
+
+    // Solicitudes de contacto vinculadas a una publicación.
+    match /solicitudes/{solicitudId} {
+      function isSignedIn() {
+        return request.auth != null;
+      }
+
+      function isParticipant(data) {
+        return isSignedIn()
+          && (request.auth.uid == data.interesadoUid
+            || request.auth.uid == data.autorPublicacionUid);
+      }
+
+      function validRequest(data) {
+        return data.keys().hasOnly([
+            'publicacionId', 'autorPublicacionUid', 'interesadoUid',
+            'nombreInteresado', 'nombreAutor', 'tituloPublicacion',
+            'estado', 'creadoEn', 'respondidoEn'
+          ])
+          && data.keys().hasAll([
+            'publicacionId', 'autorPublicacionUid', 'interesadoUid',
+            'nombreInteresado', 'nombreAutor', 'tituloPublicacion',
+            'estado', 'creadoEn', 'respondidoEn'
+          ])
+          && data.publicacionId is string
+          && data.autorPublicacionUid is string
+          && data.interesadoUid == request.auth.uid
+          && data.publicacionId.size() >= 1
+          && solicitudId == data.publicacionId + '_' + request.auth.uid
+          && data.nombreInteresado is string
+          && data.nombreInteresado.size() >= 2
+          && data.nombreInteresado.size() <= 70
+          && data.nombreAutor is string
+          && data.nombreAutor.size() >= 2
+          && data.nombreAutor.size() <= 70
+          && data.tituloPublicacion is string
+          && data.tituloPublicacion.size() >= 5
+          && data.tituloPublicacion.size() <= 110
+          && data.estado == 'pendiente'
+          && data.creadoEn == request.time
+          && data.respondidoEn == null;
+      }
+
+      allow get, list: if isParticipant(resource.data);
+
+      allow create: if isSignedIn()
+        && validRequest(request.resource.data)
+        && exists(/databases/$(database)/documents/publicaciones/$(request.resource.data.publicacionId))
+        && get(/databases/$(database)/documents/publicaciones/$(request.resource.data.publicacionId)).data.estado == 'activa'
+        && get(/databases/$(database)/documents/publicaciones/$(request.resource.data.publicacionId)).data.autorUid == request.resource.data.autorPublicacionUid
+        && request.resource.data.autorPublicacionUid != request.auth.uid
+        && request.resource.data.nombreAutor ==
+          get(/databases/$(database)/documents/publicaciones/$(request.resource.data.publicacionId)).data.autorNombre
+        && request.resource.data.tituloPublicacion ==
+          get(/databases/$(database)/documents/publicaciones/$(request.resource.data.publicacionId)).data.titulo
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && request.resource.data.nombreInteresado ==
+          get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombre;
+
+      // Solo el autor de la publicación responde una vez a una solicitud.
+      allow update: if isSignedIn()
+        && request.auth.uid == resource.data.autorPublicacionUid
+        && resource.data.estado == 'pendiente'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'respondidoEn'])
+        && request.resource.data.estado in ['aceptada', 'rechazada']
+        && request.resource.data.respondidoEn == request.time;
+      allow delete: if false;
+
+      match /mensajes/{mensajeId} {
+        function canChat() {
+          return request.auth != null
+            && exists(/databases/$(database)/documents/solicitudes/$(solicitudId))
+            && get(/databases/$(database)/documents/solicitudes/$(solicitudId)).data.estado == 'aceptada'
+            && (
+              request.auth.uid == get(/databases/$(database)/documents/solicitudes/$(solicitudId)).data.interesadoUid
+              || request.auth.uid == get(/databases/$(database)/documents/solicitudes/$(solicitudId)).data.autorPublicacionUid
+            );
+        }
+
+        allow get, list: if canChat();
+        allow create: if canChat()
+          && request.resource.data.keys().hasOnly(['autorUid', 'texto', 'creadoEn'])
+          && request.resource.data.keys().hasAll(['autorUid', 'texto', 'creadoEn'])
+          && request.resource.data.autorUid == request.auth.uid
+          && request.resource.data.texto is string
+          && request.resource.data.texto.size() >= 1
+          && request.resource.data.texto.size() <= 1000
+          && request.resource.data.creadoEn == request.time;
+        allow update, delete: if false;
+      }
     }
 
     // Las demás colecciones permanecen bloqueadas.

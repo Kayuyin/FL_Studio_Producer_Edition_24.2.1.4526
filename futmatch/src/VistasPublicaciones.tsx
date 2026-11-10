@@ -4,6 +4,7 @@ import type { User } from 'firebase/auth'
 import { categorias, crearPublicacion } from './publicaciones'
 import { COMUNAS_RM, esComunaRM } from './comunas'
 import type { Categoria, Nivel, NuevaPublicacion, Publicacion, TipoFutbol } from './publicaciones'
+import type { Solicitud } from './solicitudes'
 
 const tipos = Object.keys(categorias) as Categoria[]
 const opcionesFutbol: TipoFutbol[] = ['Fútbol 5', 'Fútbol 7', 'Fútbol 8', 'Fútbol 11']
@@ -41,7 +42,26 @@ function EstadoListado({ loading, error }: { loading: boolean; error: string }) 
   return <p className="posts-feedback">Todavía no hay publicaciones en esta categoría. ¡Sé el primero en publicar!</p>
 }
 
-function PublicacionCard({ post }: { post: Publicacion }) {
+function PublicacionCard({
+  post, userUid, solicitudes, onInterest,
+}: {
+  post: Publicacion
+  userUid: string
+  solicitudes: Solicitud[]
+  onInterest: (post: Publicacion) => Promise<void>
+}) {
+  const [sending, setSending] = useState(false)
+  const [error, setError] = useState('')
+  const alreadySent = solicitudes.find((item) =>
+    item.publicacionId === post.id && item.interesadoUid === userUid)
+  async function interest() {
+    if (sending || alreadySent || post.autorUid === userUid) return
+    setSending(true)
+    setError('')
+    try { await onInterest(post) }
+    catch { setError('No se pudo enviar tu solicitud. Revisa tu conexión y las reglas de Firestore.') }
+    finally { setSending(false) }
+  }
   const category = categorias[post.categoria]
   const autor = post.equipoNombre || post.autorNombre
   const initials = autor.split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('')
@@ -66,19 +86,32 @@ function PublicacionCard({ post }: { post: Publicacion }) {
     </div>
     <div className="card-footer">
       <span className="level">{post.categoria === 'busca_cancha' ? 'Solicitud de cancha' : post.nivel}</span>
-      <span className="publication-active">● Publicación activa</span>
+      {post.autorUid === userUid
+        ? <span className="publication-active">Tu publicación</span>
+        : <button type="button" className="interest-button"
+            disabled={!!alreadySent || sending} onClick={() => { void interest() }}>
+            {sending ? 'Enviando…' : alreadySent
+              ? alreadySent.estado === 'aceptada' ? '✓ Contacto aceptado'
+                : alreadySent.estado === 'rechazada' ? 'Solicitud rechazada'
+                : '✓ Solicitud enviada'
+              : '♡ Me interesa'}
+          </button>}
     </div>
+    {error && <p role="alert" className="posts-feedback posts-error">{error}</p>}
   </article>
 }
 
 export function Home({
-  name, onNavigate, publicaciones, loading, error,
+  name, onNavigate, publicaciones, loading, error, userUid, solicitudes, onInterest,
 }: {
   name: string
   onNavigate: (view: 'explorar' | 'publicar') => void
   publicaciones: Publicacion[]
   loading: boolean
   error: string
+  userUid: string
+  solicitudes: Solicitud[]
+  onInterest: (post: Publicacion) => Promise<void>
 }) {
   const personas = publicaciones.filter((post) => post.categoria === 'persona_busca_equipo').length
   const refuerzos = publicaciones.filter((post) => post.categoria === 'equipo_busca_jugadores').length
@@ -106,7 +139,7 @@ export function Home({
       <div><h2>Últimas publicaciones</h2><p className="muted">Convocatorias de la comunidad FutMatch</p></div>
       <button className="text-button" onClick={() => onNavigate('explorar')}>Ver todas <span>→</span></button>
     </section>
-    {publicaciones.length ? <div className="post-grid">{publicaciones.slice(0, 3).map((post) => <PublicacionCard key={post.id} post={post} />)}</div> : <EstadoListado loading={loading} error={error} />}
+    {publicaciones.length ? <div className="post-grid">{publicaciones.slice(0, 3).map((post) => <PublicacionCard key={post.id} post={post} userUid={userUid} solicitudes={solicitudes} onInterest={onInterest} />)}</div> : <EstadoListado loading={loading} error={error} />}
     <section className="quick-stats" aria-label="Publicaciones por categoría">
       <div><strong>{personas}</strong><span>Personas buscan<br />equipo</span></div>
       <div><strong>{refuerzos}</strong><span>Equipos buscan<br />jugadores</span></div>
@@ -117,13 +150,16 @@ export function Home({
 }
 
 export function Explore({
-  publicaciones, filter, setFilter, loading, error,
+  publicaciones, filter, setFilter, loading, error, userUid, solicitudes, onInterest,
 }: {
   publicaciones: Publicacion[]
   filter: Categoria | 'todos'
   setFilter: (filter: Categoria | 'todos') => void
   loading: boolean
   error: string
+  userUid: string
+  solicitudes: Solicitud[]
+  onInterest: (post: Publicacion) => Promise<void>
 }) {
   const [search, setSearch] = useState('')
   const [nivel, setNivel] = useState<Nivel | 'todos'>('todos')
@@ -161,14 +197,15 @@ export function Explore({
       </select>}
     </div>
     <div className="result-heading"><h2>{result.length} {result.length === 1 ? 'publicación encontrada' : 'publicaciones encontradas'}</h2><span className="muted">Más recientes primero</span></div>
-    {result.length ? <div className="post-grid explore-grid">{result.map((post) => <PublicacionCard key={post.id} post={post} />)}</div> : <EstadoListado loading={loading} error={error} />}
+    {result.length ? <div className="post-grid explore-grid">{result.map((post) => <PublicacionCard key={post.id} post={post} userUid={userUid} solicitudes={solicitudes} onInterest={onInterest} />)}</div> : <EstadoListado loading={loading} error={error} />}
   </div>
 }
 
 export function Publish({
-  user, onCreated,
+  user, nombreAutor, onCreated,
 }: {
   user: User
+  nombreAutor: string
   onCreated: (categoria: Categoria) => void
 }) {
   const [categoria, setCategoria] = useState<Categoria>('persona_busca_equipo')
@@ -213,7 +250,7 @@ export function Publish({
     const datos: NuevaPublicacion = {
       categoria,
       autorUid: user.uid,
-      autorNombre: (user.displayName || user.email?.split('@')[0] || 'Jugador').trim(),
+      autorNombre: nombreAutor.trim(),
       equipoNombre: isEquipo ? equipoNombre.trim() : '',
       titulo: titulo.trim(),
       descripcion: descripcion.trim(),

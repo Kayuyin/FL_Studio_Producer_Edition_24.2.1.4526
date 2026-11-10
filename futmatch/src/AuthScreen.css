@@ -19,3 +19,8 @@
 .auth-mobile-brand{display:none}
 @media(max-width:850px){.auth-layout{grid-template-columns:1fr}.auth-promo{display:none}.auth-main{padding:36px 20px;min-height:100vh}.auth-mobile-brand{font:700 23px 'Space Grotesk',sans-serif;display:block;margin-bottom:38px;color:#282032}.auth-mobile-brand span{color:#7048f5}.auth-card h2{font-size:31px}}
 @media(max-width:400px){.auth-main{padding:28px 18px}.auth-card h2{font-size:28px}.auth-mobile-brand{margin-bottom:28px}}
+
+/* Selectores oficiales de regiones y comunas */
+.auth-form select{background:#fff;color:#342e43;border:1px solid #ddd9ea;border-radius:10px;padding:12px 15px;margin:0 0 19px;min-height:45px;width:100%;font-size:14px;outline:none;max-width:100%;}
+.auth-form select:focus{border-color:#7048f5;box-shadow:0 0 0 3px #7048f51a}
+.auth-form select:disabled{background:#f1f0f5;color:#8d889a;cursor:not-allowed}

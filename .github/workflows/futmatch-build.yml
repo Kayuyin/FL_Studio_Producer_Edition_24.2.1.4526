@@ -1,0 +1,30 @@
+name: Comprobar FutMatch
+
+on:
+  push:
+    paths:
+      - 'futmatch/**'
+      - '.github/workflows/futmatch-build.yml'
+  pull_request:
+    paths:
+      - 'futmatch/**'
+      - '.github/workflows/futmatch-build.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: futmatch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: futmatch/package-lock.json
+      - run: npm ci
+      - run: npm run build

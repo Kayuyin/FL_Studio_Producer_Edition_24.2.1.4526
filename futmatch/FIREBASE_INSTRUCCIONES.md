@@ -20,6 +20,18 @@ npm run dev
 
 Abrir la URL local que indique Vite (por ejemplo, http://localhost:5173 o :5174).
 
+## Registro con región y comuna (Chile completo)
+
+El registro ya no permite escribir cualquier texto como comuna. Se elige **Región** y luego **Comuna**, mediante dos listas dependientes. Al cambiar de región, la comuna anterior se limpia automáticamente.
+
+- Catálogo estático: `src/territorioChile.ts`, con **16 regiones y 346 comunas**, a partir de los datos normalizados y documentados de [ChileHub](https://github.com/cortega26/chile-hub/tree/main/data/normalized) (datos de división político-administrativa BCN/SUBDERE).
+- El perfil en `usuarios/{uid}` de Firestore guarda `nombre`, `correo`, `region`, `regionCodigo`, `comuna`, `comunaCodigo` y `creadoEn`.
+- Las **reglas de Firestore** deben publicarse nuevamente con el contenido actualizado de `firestore.rules` **antes de probar un registro nuevo**. Validan que el par región/comuna y sus nombres corresponda al catálogo oficial incorporado.
+- Los usuarios creados antes de este cambio **no se borran**: sus documentos conservan `comuna` y todavía no tienen `regionCodigo` ni `comunaCodigo`. Más adelante se puede crear edición de perfil para completar esa información.
+- Cambiar la ubicación del perfil de un usuario ya existente queda fuera de esta etapa; el formulario actual se aplica al registro de cuentas nuevas.
+
+**Prueba sugerida:** seleccionar Región Metropolitana y La Florida, crear un usuario de prueba distinto; verificar en Firestore `regionCodigo: "13"` y el `comunaCodigo` correspondiente. Cambiar a Biobío antes de registrar y verificar que La Florida desaparece del selector. Verificar también una comuna de otra región. No es necesario desplegar un servidor geográfico externo.
+
 ## Verificar manualmente
 
 1. Crear una cuenta de prueba con nombre, comuna, correo y contraseña de 8 o más caracteres.

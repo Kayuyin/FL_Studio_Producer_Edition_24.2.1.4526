@@ -154,7 +154,9 @@ service cloud.firestore {
         && request.resource.data.autorNombre ==
           get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombre;
 
-      allow update, delete: if false;
+      // Únicamente el creador puede borrar su propia publicación.
+      allow update: if false;
+      allow delete: if loggedIn() && resource.data.autorUid == request.auth.uid;
     }
 
     // Solicitudes de contacto vinculadas a una publicación.

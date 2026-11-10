@@ -12,6 +12,7 @@ import type { Solicitud } from './solicitudes'
 import { Matches, Mensajes } from './Conexiones'
 import { Perfil } from './Perfil'
 import type { PerfilUsuario } from './Perfil'
+import { TIPOS_CUENTA, tipoCuentaValido } from './tiposCuenta'
 import './App.css'
 
 type View = 'inicio' | 'explorar' | 'publicar' | 'matches' | 'mensajes' | 'perfil' | 'ayuda'
@@ -53,6 +54,7 @@ function Dashboard({
   const [perfilError, setPerfilError] = useState('')
   const displayName = perfil?.nombre?.trim() || user.displayName?.trim() || user.email?.split('@')[0] || 'Jugador'
   const initials = displayName.split(/\s+/).slice(0, 2).map((part) => part[0]?.toUpperCase()).join('')
+  const tipoCuenta = tipoCuentaValido(perfil?.tipoCuenta) ? perfil.tipoCuenta : 'jugador'
 
   const [view, setView] = useState<View>('inicio')
   const [filter, setFilter] = useState<Categoria | 'todos'>('todos')
@@ -133,7 +135,7 @@ function Dashboard({
       <div className="brand"><span className="brand-mark">⚽</span><span>Fut<span>Match</span></span></div>
       <div className="profile-mini">
         <div className="avatar avatar-purple">{initials}</div>
-        <div><strong>{displayName}</strong><small>Futbolista</small></div>
+        <div><strong>{displayName}</strong><small>{TIPOS_CUENTA[tipoCuenta].label}</small></div>
         <button type="button" aria-label="Editar mi perfil" title="Editar mi perfil" onClick={() => goTo('perfil')}>•••</button>
       </div>
       <nav className="main-nav" aria-label="Navegación principal">

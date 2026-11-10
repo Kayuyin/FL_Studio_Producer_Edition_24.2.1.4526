@@ -60,13 +60,36 @@ service cloud.firestore {
       allow get: if isOwner();
       allow list: if false;
 
+      // Los nuevos perfiles se crean con un rol explícito y datos coherentes.
       allow create: if isOwner()
-        && request.resource.data.keys().hasOnly(['nombre', 'correo', 'region', 'regionCodigo', 'comuna', 'comunaCodigo', 'creadoEn'])
-        && request.resource.data.keys().hasAll(['nombre', 'correo', 'region', 'regionCodigo', 'comuna', 'comunaCodigo', 'creadoEn'])
+        && request.resource.data.keys().hasOnly([
+          'nombre', 'correo', 'region', 'regionCodigo', 'comuna', 'comunaCodigo',
+          'tipoCuenta', 'nombreEquipo', 'nombreCancha', 'bio', 'creadoEn'
+        ])
+        && request.resource.data.keys().hasAll([
+          'nombre', 'correo', 'region', 'regionCodigo', 'comuna', 'comunaCodigo',
+          'tipoCuenta', 'nombreEquipo', 'nombreCancha', 'bio', 'creadoEn'
+        ])
         && validNameAndCommune(request.resource.data)
         && validTerritory(request.resource.data)
+        && validAccountType(request.resource.data)
+        && validSportProfile(request.resource.data)
         && request.resource.data.correo == request.auth.token.email
         && request.resource.data.creadoEn == request.time;
+
+      // El rol seleccionado debe concordar con el nombre del equipo o cancha.
+      function validAccountType(data) {
+        return data.tipoCuenta in ['jugador', 'equipo', 'capitan', 'dueno_cancha']
+          && data.nombreEquipo is string
+          && data.nombreEquipo.size() <= 80
+          && data.nombreCancha is string
+          && data.nombreCancha.size() <= 100
+          && (
+            (data.tipoCuenta == 'jugador' && data.nombreEquipo == '' && data.nombreCancha == '')
+            || (data.tipoCuenta in ['equipo', 'capitan'] && data.nombreEquipo.size() >= 2 && data.nombreCancha == '')
+            || (data.tipoCuenta == 'dueno_cancha' && data.nombreEquipo == '' && data.nombreCancha.size() >= 2)
+          );
+      }
 
       function validSportProfile(data) {
         return (!('bio' in data) || (data.bio is string && data.bio.size() <= 350))
@@ -84,10 +107,12 @@ service cloud.firestore {
       allow update: if isOwner()
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly([
           'nombre', 'region', 'regionCodigo', 'comuna', 'comunaCodigo',
+          'tipoCuenta', 'nombreEquipo', 'nombreCancha',
           'bio', 'posicion', 'nivel', 'disponibilidad'
         ])
         && validNameAndCommune(request.resource.data)
         && validTerritory(request.resource.data)
+        && validAccountType(request.resource.data)
         && validSportProfile(request.resource.data);
       allow delete: if false;
     }

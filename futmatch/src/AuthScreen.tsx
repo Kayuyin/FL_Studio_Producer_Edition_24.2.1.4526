@@ -10,6 +10,8 @@ import { FirebaseError } from 'firebase/app'
 import { doc, serverTimestamp, setDoc } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import { REGIONES_CHILE, obtenerComuna, obtenerRegion } from './territorioChile'
+import { TIPOS_CUENTA, TIPOS_CUENTA_IDS, cuentaConCancha, cuentaConEquipo } from './tiposCuenta'
+import type { TipoCuenta } from './tiposCuenta'
 import './AuthScreen.css'
 
 type Mode = 'login' | 'registro' | 'recuperar'
@@ -33,6 +35,10 @@ function readableError(error: unknown): string {
 export default function AuthScreen({ onNotice }: { onNotice: (message: string) => void }) {
   const [mode, setMode] = useState<Mode>('login')
   const [nombre, setNombre] = useState('')
+  const [tipoCuenta, setTipoCuenta] = useState<TipoCuenta>('jugador')
+  const [nombreEquipo, setNombreEquipo] = useState('')
+  const [nombreCancha, setNombreCancha] = useState('')
+  const [bio, setBio] = useState('')
   const [regionCodigo, setRegionCodigo] = useState('')
   const [comunaCodigo, setComunaCodigo] = useState('')
   const region = obtenerRegion(regionCodigo)
@@ -59,7 +65,18 @@ export default function AuthScreen({ onNotice }: { onNotice: (message: string) =
     const email = correo.trim().toLowerCase()
 
     if (mode === 'registro') {
-      if (nombre.trim().length < 2) { setError('Escribe un nombre de al menos dos caracteres.'); return }
+      if (nombre.trim().length < 2 || nombre.trim().length > 70) {
+        setError('El nombre debe tener entre 2 y 70 caracteres.')
+        return
+      }
+      if (cuentaConEquipo(tipoCuenta) && (nombreEquipo.trim().length < 2 || nombreEquipo.trim().length > 80)) {
+        setError('Ingresa un nombre de equipo de entre 2 y 80 caracteres.')
+        return
+      }
+      if (cuentaConCancha(tipoCuenta) && (nombreCancha.trim().length < 2 || nombreCancha.trim().length > 100)) {
+        setError('Ingresa el nombre de la cancha (2 a 100 caracteres).')
+        return
+      }
       if (!region || !comuna) { setError('Selecciona una región y una comuna válida de Chile.'); return }
       if (password.length < 8) { setError('Usa una contraseña de al menos 8 caracteres.'); return }
       if (password !== confirmacion) { setError('Las contraseñas no coinciden.'); return }
@@ -79,6 +96,10 @@ export default function AuthScreen({ onNotice }: { onNotice: (message: string) =
           await setDoc(doc(db, 'usuarios', account.user.uid), {
             nombre: nombre.trim(),
             correo: email,
+            tipoCuenta,
+            nombreEquipo: cuentaConEquipo(tipoCuenta) ? nombreEquipo.trim() : '',
+            nombreCancha: cuentaConCancha(tipoCuenta) ? nombreCancha.trim() : '',
+            bio: bio.trim(),
             regionCodigo,
             comunaCodigo,
             region: region!.nombre,
@@ -117,8 +138,27 @@ export default function AuthScreen({ onNotice }: { onNotice: (message: string) =
           <p className="auth-subtitle">{mode === 'registro' ? 'Regístrate para comenzar a organizar tus partidos.' : mode === 'recuperar' ? 'Te enviaremos un enlace a tu correo electrónico.' : 'Ingresa para encontrar tu próximo partido.'}</p>
           <form onSubmit={(event) => { void submit(event) }} className="auth-form">
             {mode === 'registro' && <>
-              <label htmlFor="auth-nombre">Nombre y apellido</label>
-              <input id="auth-nombre" autoComplete="name" maxLength={70} required value={nombre} onChange={(event) => setNombre(event.target.value)} placeholder="Ej: Camila Torres" />
+              <label htmlFor="auth-tipo-cuenta">¿Qué tipo de cuenta necesitas?</label>
+              <select id="auth-tipo-cuenta" required value={tipoCuenta}
+                onChange={(event) => setTipoCuenta(event.target.value as TipoCuenta)}>
+                {TIPOS_CUENTA_IDS.map((tipo) => <option key={tipo} value={tipo}>{TIPOS_CUENTA[tipo].label}</option>)}
+              </select>
+              <p className="auth-type-hint">{TIPOS_CUENTA[tipoCuenta].description}</p>
+              <label htmlFor="auth-nombre">{tipoCuenta === 'jugador' || tipoCuenta === 'capitan' ? 'Nombre y apellido' : 'Nombre de la persona responsable'}</label>
+              <input id="auth-nombre" autoComplete="name" minLength={2} maxLength={70} required value={nombre} onChange={(event) => setNombre(event.target.value)} placeholder="Ej: Camila Torres" />
+              {cuentaConEquipo(tipoCuenta) && <>
+                <label htmlFor="auth-equipo">Nombre del equipo</label>
+                <input id="auth-equipo" required minLength={2} maxLength={80} value={nombreEquipo}
+                  onChange={(event) => setNombreEquipo(event.target.value)} placeholder="Ej: Atlético Santiago" />
+              </>}
+              {cuentaConCancha(tipoCuenta) && <>
+                <label htmlFor="auth-cancha">Nombre de la cancha</label>
+                <input id="auth-cancha" required minLength={2} maxLength={100} value={nombreCancha}
+                  onChange={(event) => setNombreCancha(event.target.value)} placeholder="Ej: Cancha Los Aromos" />
+              </>}
+              <label htmlFor="auth-bio">Descripción de tu perfil (opcional)</label>
+              <textarea id="auth-bio" maxLength={350} rows={3} value={bio}
+                onChange={(event) => setBio(event.target.value)} placeholder={cuentaConCancha(tipoCuenta) ? 'Describe tu cancha y sus instalaciones.' : cuentaConEquipo(tipoCuenta) ? 'Cuéntanos sobre tu equipo.' : 'Cuéntanos sobre ti y qué buscas.'} />
               <label htmlFor="auth-region">Región</label>
               <select id="auth-region" name="region" autoComplete="address-level1" required value={regionCodigo}
                 onChange={(event) => { setRegionCodigo(event.target.value); setComunaCodigo('') }}>

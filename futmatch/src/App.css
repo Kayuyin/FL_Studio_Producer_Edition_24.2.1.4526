@@ -119,3 +119,11 @@
 .post-delete-confirm p{color:#71353b;font-size:12px;line-height:1.55;margin:0 0 11px;overflow-wrap:anywhere}
 .post-delete-actions{display:flex;gap:9px;flex-wrap:wrap}
 @media(max-width:650px){.owner-actions{gap:6px}.post-delete-confirm{padding:11px}}
+
+/* Tipo de cuenta y descripción editable */
+.profile-bio{white-space:pre-wrap;overflow-wrap:anywhere;line-height:1.65}
+.profile-type-hint{margin-top:-11px}
+.profile-char-count{font-size:11px;color:#807b91;text-align:right;font-weight:400}
+.profile-edit-form textarea{resize:vertical}
+.profile-cover .outline-button:disabled{opacity:.6;cursor:wait}
+.profile-tags{flex-wrap:wrap}

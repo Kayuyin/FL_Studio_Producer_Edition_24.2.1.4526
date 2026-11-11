@@ -1,5 +1,5 @@
 import {
-  collection, doc, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where,
+  collection, doc, getDoc, onSnapshot, query, runTransaction, serverTimestamp, setDoc, updateDoc, where,
 } from 'firebase/firestore'
 import type { Timestamp, Unsubscribe } from 'firebase/firestore'
 import { db } from './firebase'
@@ -85,7 +85,23 @@ export async function solicitarReserva(
   if (partido.fecha < hoy) throw new Error('La fecha del encuentro ya pasó.')
   if (nota.trim().length > 240) throw new Error('La nota no puede superar 240 caracteres.')
   const id = `${partido.id}_${cancha.id}`
-  await setDoc(doc(db, 'reservas', id), {
+  const ref = doc(db, 'reservas', id)
+  const previa = await getDoc(ref)
+  if (previa.exists()) {
+    const datos = previa.data()
+    if (datos.solicitanteUid !== solicitanteUid || !['rechazada','cancelada'].includes(datos.estado)) {
+      throw new Error('Ya hay una solicitud para esta cancha y partido. Revisa Mis reservas.')
+    }
+    await updateDoc(ref, {
+      estado: 'pendiente',
+      nota: nota.trim(),
+      precioHora: cancha.precioHora,
+      creadoEn: serverTimestamp(),
+      respondidoEn: null,
+    })
+    return
+  }
+  await setDoc(ref, {
     partidoId: partido.id,
     canchaId: cancha.id,
     canchaNombre: cancha.nombre,

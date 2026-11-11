@@ -2,11 +2,19 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { User } from 'firebase/auth'
 import { categorias, crearPublicacion } from './publicaciones'
-import { COMUNAS_RM, esComunaRM } from './comunas'
+import { REGIONES_CHILE, obtenerComuna, obtenerRegion } from './territorioChile'
+import { cuentaConCancha } from './tiposCuenta'
+import type { TipoCuenta } from './tiposCuenta'
 import type { Categoria, Nivel, NuevaPublicacion, Publicacion, TipoFutbol } from './publicaciones'
 import type { Solicitud } from './solicitudes'
 
 const tipos = Object.keys(categorias) as Categoria[]
+const tiposPublicables: Record<TipoCuenta, Categoria[]> = {
+  jugador: ['persona_busca_equipo', 'busca_cancha'],
+  equipo: ['equipo_busca_jugadores', 'equipo_busca_rival', 'busca_cancha'],
+  capitan: ['equipo_busca_jugadores', 'equipo_busca_rival', 'busca_cancha'],
+  dueno_cancha: ['ofrece_cancha'],
+}
 const opcionesFutbol: TipoFutbol[] = ['Fútbol 5', 'Fútbol 7', 'Fútbol 8', 'Fútbol 11']
 const niveles: Nivel[] = ['Amateur', 'Intermedio', 'Avanzado']
 const opciones = {
@@ -26,6 +34,10 @@ const opciones = {
     description: 'Indica en qué comuna necesitas una cancha',
     example: 'Ej: Busco cancha de fútbol 7 para el sábado',
   },
+  ofrece_cancha: {
+    description: 'Anuncia una cancha para que otros usuarios puedan contactarte',
+    example: 'Ej: Cancha de fútbol 7 disponible en La Florida',
+  },
 } as const
 
 function fechaLegible(fecha: string): string {
@@ -42,7 +54,7 @@ function EstadoListado({ loading, error }: { loading: boolean; error: string }) 
   return <p className="posts-feedback">Todavía no hay publicaciones en esta categoría. ¡Sé el primero en publicar!</p>
 }
 
-function PublicacionCard({
+export function PublicacionCard({
   post, userUid, solicitudes, onInterest, onDelete,
 }: {
   post: Publicacion
@@ -79,7 +91,7 @@ function PublicacionCard({
   }
 
   const category = categorias[post.categoria]
-  const autor = post.equipoNombre || post.autorNombre
+  const autor = post.nombreCancha || post.equipoNombre || post.autorNombre
   const initials = autor.split(/\s+/).slice(0, 2).map((part) => part.charAt(0).toUpperCase()).join('')
   const publicado = post.creadoEn?.toDate()
   return <article className="post-card">
@@ -101,7 +113,7 @@ function PublicacionCard({
       <span>⚽ {post.futbol}</span>
     </div>
     <div className="card-footer">
-      <span className="level">{post.categoria === 'busca_cancha' ? 'Solicitud de cancha' : post.nivel}</span>
+      <span className="level">{post.categoria === 'busca_cancha' ? 'Solicitud de cancha' : post.categoria === 'ofrece_cancha' ? 'Oferta de cancha' : post.nivel}</span>
       {post.autorUid === userUid
         ? <div className="owner-actions">
             <span className="publication-active">Tu publicación</span>
@@ -148,7 +160,7 @@ export function Home({
   const personas = publicaciones.filter((post) => post.categoria === 'persona_busca_equipo').length
   const refuerzos = publicaciones.filter((post) => post.categoria === 'equipo_busca_jugadores').length
   const rivales = publicaciones.filter((post) => post.categoria === 'equipo_busca_rival').length
-  const canchas = publicaciones.filter((post) => post.categoria === 'busca_cancha').length
+  const canchas = publicaciones.filter((post) => post.categoria === 'busca_cancha' || post.categoria === 'ofrece_cancha').length
   return <div className="page">
     <section className="welcome">
       <div>
@@ -176,7 +188,7 @@ export function Home({
       <div><strong>{personas}</strong><span>Personas buscan<br />equipo</span></div>
       <div><strong>{refuerzos}</strong><span>Equipos buscan<br />jugadores</span></div>
       <div><strong>{rivales}</strong><span>Equipos buscan<br />rival</span></div>
-      <div><strong>{canchas}</strong><span>Personas buscan<br />cancha</span></div>
+      <div><strong>{canchas}</strong><span>Solicitudes y ofertas<br />de canchas</span></div>
     </section>
   </div>
 }
@@ -201,8 +213,8 @@ export function Explore({
     const term = search.trim().toLocaleLowerCase('es-CL')
     return publicaciones.filter((post) =>
       (filter === 'todos' || post.categoria === filter)
-      && (filter === 'busca_cancha' || nivel === 'todos' || post.nivel === nivel)
-      && (filter !== 'busca_cancha' || !comunaCancha || post.comuna === comunaCancha)
+      && (filter === 'busca_cancha' || filter === 'ofrece_cancha' || nivel === 'todos' || post.nivel === nivel)
+      && (!['busca_cancha', 'ofrece_cancha'].includes(filter) || !comunaCancha || post.comuna === comunaCancha)
       && (!term || [post.titulo, post.descripcion, post.comuna, post.autorNombre, post.equipoNombre]
         .some((value) => value.toLocaleLowerCase('es-CL').includes(term))),
     )
@@ -212,7 +224,7 @@ export function Explore({
     <div className="page-heading"><div>
       <p className="eyebrow">DESCUBRE OPORTUNIDADES</p>
       <h1>Explorar publicaciones</h1>
-      <p className="muted">Encuentra jugadores, equipos, rivales y solicitudes de canchas.</p>
+      <p className="muted">Encuentra jugadores, equipos, rivales, ofertas y solicitudes de canchas.</p>
     </div></div>
     <div className="filters" role="group" aria-label="Filtrar por categoría">
       <button className={filter === 'todos' ? 'selected' : ''} aria-pressed={filter === 'todos'} onClick={() => setFilter('todos')}>Todas</button>
@@ -220,11 +232,12 @@ export function Explore({
     </div>
     <div className="filter-row">
       <label className="search-box" aria-label="Buscar publicaciones">⌕ <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por comuna, nombre o publicación" /></label>
-      {filter === 'busca_cancha' && <select aria-label="Filtrar canchas por comuna" value={comunaCancha} onChange={(event) => setComunaCancha(event.target.value)}>
+      {['busca_cancha', 'ofrece_cancha'].includes(filter) && <select aria-label="Filtrar canchas por comuna" value={comunaCancha} onChange={(event) => setComunaCancha(event.target.value)}>
         <option value="">Todas las comunas</option>
-        {COMUNAS_RM.map((item) => <option key={item} value={item}>{item}</option>)}
+        {REGIONES_CHILE.flatMap((region) => region.comunas.map((item) =>
+          <option key={item.codigo} value={item.nombre}>{item.nombre} · {region.nombre}</option>))}
       </select>}
-      {filter !== 'busca_cancha' && <select aria-label="Filtrar por nivel" value={nivel} onChange={(event) => setNivel(event.target.value as Nivel | 'todos')}>
+      {!['busca_cancha', 'ofrece_cancha'].includes(filter) && <select aria-label="Filtrar por nivel" value={nivel} onChange={(event) => setNivel(event.target.value as Nivel | 'todos')}>
         <option value="todos">Cualquier nivel</option>
         {niveles.map((item) => <option key={item}>{item}</option>)}
       </select>}
@@ -235,17 +248,32 @@ export function Explore({
 }
 
 export function Publish({
-  user, nombreAutor, onCreated,
+  user, nombreAutor, tipoCuenta, equipoRegistrado, canchaRegistrada,
+  regionPerfil, comunaPerfil, categoriaInicial, onCreated,
 }: {
   user: User
   nombreAutor: string
+  tipoCuenta: TipoCuenta
+  equipoRegistrado: string
+  canchaRegistrada: string
+  regionPerfil: string
+  comunaPerfil: string
+  categoriaInicial: Categoria
   onCreated: (categoria: Categoria) => void
 }) {
-  const [categoria, setCategoria] = useState<Categoria>('persona_busca_equipo')
-  const [equipoNombre, setEquipoNombre] = useState('')
+  const permitidas = tiposPublicables[tipoCuenta]
+  const [categoria, setCategoria] = useState<Categoria>(
+    permitidas.includes(categoriaInicial) ? categoriaInicial : permitidas[0],
+  )
+  const [equipoNombre, setEquipoNombre] = useState(equipoRegistrado)
+  const [nombreCancha, setNombreCancha] = useState(canchaRegistrada)
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
-  const [comuna, setComuna] = useState('')
+  const [regionCodigo, setRegionCodigo] = useState(regionPerfil)
+  const [comunaCodigo, setComunaCodigo] = useState(comunaPerfil)
+  const region = obtenerRegion(regionCodigo)
+  const comunaSeleccionada = obtenerComuna(regionCodigo, comunaCodigo)
+  const comuna = comunaSeleccionada?.nombre || ''
   const [futbol, setFutbol] = useState<TipoFutbol>('Fútbol 7')
   const [nivel, setNivel] = useState<Nivel>('Amateur')
   const [fecha, setFecha] = useState('')
@@ -253,19 +281,24 @@ export function Publish({
   const [sending, setSending] = useState(false)
   const [error, setError] = useState('')
   const isEquipo = categoria === 'equipo_busca_jugadores' || categoria === 'equipo_busca_rival'
-  const isCancha = categoria === 'busca_cancha'
+  const isCancha = categoria === 'busca_cancha' || categoria === 'ofrece_cancha'
+  const isOffer = categoria === 'ofrece_cancha'
   const today = new Date()
   const minDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setError('')
-    if (titulo.trim().length < 5 || descripcion.trim().length < 15 || comuna.trim().length < 2) {
-      setError('Completa el título, la descripción (mínimo 15 caracteres) y la comuna.')
+    if (titulo.trim().length < 5 || descripcion.trim().length < 15 || !comunaSeleccionada) {
+      setError('Completa el título, la descripción (mínimo 15 caracteres) y selecciona una región y comuna de Chile.')
       return
     }
-    if (isCancha && !esComunaRM(comuna)) {
-      setError('Selecciona una comuna de la Región Metropolitana donde necesitas la cancha.')
+    if (!permitidas.includes(categoria)) {
+      setError('Esta categoría no corresponde a tu tipo de cuenta.')
+      return
+    }
+    if (isOffer && (!cuentaConCancha(tipoCuenta) || nombreCancha.trim().length < 2)) {
+      setError('Debes registrar el nombre de tu cancha en el perfil o en esta publicación.')
       return
     }
     if (isEquipo && equipoNombre.trim().length < 2) {
@@ -285,6 +318,7 @@ export function Publish({
       autorUid: user.uid,
       autorNombre: nombreAutor.trim(),
       equipoNombre: isEquipo ? equipoNombre.trim() : '',
+      nombreCancha: isOffer ? nombreCancha.trim() : '',
       titulo: titulo.trim(),
       descripcion: descripcion.trim(),
       comuna: comuna.trim(),
@@ -311,12 +345,14 @@ export function Publish({
     <div className="page-heading"><div>
       <p className="eyebrow">COMPARTE CON LA COMUNIDAD</p>
       <h1>Crear publicación</h1>
-      <p className="muted">La publicación quedará disponible para la comunidad de FutMatch.</p>
+      <p className="muted">{isOffer
+        ? 'Anuncia tu cancha para recibir solicitudes de contacto. Las reservas y los pagos no se realizan en FutMatch.'
+        : 'La publicación quedará disponible para la comunidad de FutMatch.'}</p>
     </div></div>
     <form className="form-card" onSubmit={(event) => { void submit(event) }}>
       <span className="field-label" id="tipo-publicacion-label">¿Qué quieres publicar?</span>
       <div className="choice-grid" role="group" aria-labelledby="tipo-publicacion-label">
-        {tipos.map((tipo) => <button
+        {permitidas.map((tipo) => <button
           key={tipo}
           type="button"
           className={`choice ${categoria === tipo ? 'active' : ''}`}
@@ -327,7 +363,10 @@ export function Publish({
         </button>)}
       </div>
       {isEquipo && <label>Nombre de tu equipo
-        <input value={equipoNombre} onChange={(event) => setEquipoNombre(event.target.value)} maxLength={80} required placeholder="Ej: Deportivo FutMatch" />
+        <input value={equipoNombre} onChange={(event) => setEquipoNombre(event.target.value)} maxLength={80} minLength={2} required placeholder="Ej: Deportivo FutMatch" />
+      </label>}
+      {isOffer && <label>Nombre de tu cancha
+        <input value={nombreCancha} onChange={(event) => setNombreCancha(event.target.value)} maxLength={100} minLength={2} required placeholder="Ej: Canchas del Parque" />
       </label>}
       <label>Título de la publicación
         <input value={titulo} onChange={(event) => setTitulo(event.target.value)} maxLength={110} minLength={5} required placeholder={opciones[categoria].example} />
@@ -336,16 +375,18 @@ export function Publish({
         <textarea value={descripcion} onChange={(event) => setDescripcion(event.target.value)} maxLength={1200} minLength={15} required placeholder="Cuenta qué buscas, posición, horarios o detalles del partido..." rows={4} />
       </label>
       <div className="form-columns">
-        {isCancha
-          ? <label>¿En qué comuna buscas una cancha?
-              <select value={comuna} onChange={(event) => setComuna(event.target.value)} required>
-                <option value="">Selecciona una comuna de la Región Metropolitana</option>
-                {COMUNAS_RM.map((item) => <option key={item} value={item}>{item}</option>)}
-              </select>
-            </label>
-          : <label>Comuna o ciudad
-              <input value={comuna} onChange={(event) => setComuna(event.target.value)} maxLength={80} minLength={2} required placeholder="Ej: La Florida" />
-            </label>}
+        <label>Región
+          <select value={regionCodigo} onChange={(event) => { setRegionCodigo(event.target.value); setComunaCodigo('') }} required>
+            <option value="">Selecciona una región</option>
+            {REGIONES_CHILE.map((item) => <option value={item.codigo} key={item.codigo}>{item.nombre}</option>)}
+          </select>
+        </label>
+        <label>{isOffer ? 'Comuna donde se encuentra la cancha' : isCancha ? 'Comuna donde buscas una cancha' : 'Comuna'}
+          <select value={comunaCodigo} onChange={(event) => setComunaCodigo(event.target.value)} disabled={!regionCodigo} required>
+            <option value="">{regionCodigo ? 'Selecciona una comuna' : 'Primero selecciona una región'}</option>
+            {region?.comunas.map((item) => <option key={item.codigo} value={item.codigo}>{item.nombre}</option>)}
+          </select>
+        </label>
         <label>Tipo de fútbol
           <select value={futbol} onChange={(event) => setFutbol(event.target.value as TipoFutbol)}>
             {opcionesFutbol.map((item) => <option key={item}>{item}</option>)}

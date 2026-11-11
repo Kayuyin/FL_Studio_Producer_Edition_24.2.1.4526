@@ -17,6 +17,7 @@ export const categorias = {
   equipo_busca_jugadores: { label: 'Equipo busca jugadores', shortLabel: 'Buscamos jugadores', icon: '↻', color: '#6c4af2' },
   equipo_busca_rival: { label: 'Equipo busca rival', shortLabel: 'Buscamos rival', icon: '⚔', color: '#0aa878' },
   busca_cancha: { label: 'Busco cancha', shortLabel: 'Busco cancha', icon: '▣', color: '#ef8b35' },
+  ofrece_cancha: { label: 'Ofrezco cancha', shortLabel: 'Ofrezco cancha', icon: '⌂', color: '#1976c3' },
 } as const
 
 export type Categoria = keyof typeof categorias
@@ -29,6 +30,7 @@ export type Publicacion = {
   autorUid: string
   autorNombre: string
   equipoNombre: string
+  nombreCancha: string
   titulo: string
   descripcion: string
   comuna: string
@@ -62,6 +64,7 @@ export function escucharPublicaciones(
           autorUid: String(data.autorUid ?? ''),
           autorNombre: String(data.autorNombre ?? 'Jugador'),
           equipoNombre: String(data.equipoNombre ?? ''),
+          nombreCancha: String(data.nombreCancha ?? ''),
           titulo: String(data.titulo ?? ''),
           descripcion: String(data.descripcion ?? ''),
           comuna: String(data.comuna ?? ''),

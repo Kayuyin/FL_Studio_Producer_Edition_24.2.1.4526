@@ -64,7 +64,8 @@ service cloud.firestore {
       allow create: if isOwner()
         && request.resource.data.keys().hasOnly([
           'nombre', 'correo', 'region', 'regionCodigo', 'comuna', 'comunaCodigo',
-          'tipoCuenta', 'nombreEquipo', 'nombreCancha', 'bio', 'creadoEn'
+          'tipoCuenta', 'nombreEquipo', 'nombreCancha', 'bio',
+          'posicion', 'nivel', 'disponibilidad', 'creadoEn'
         ])
         && request.resource.data.keys().hasAll([
           'nombre', 'correo', 'region', 'regionCodigo', 'comuna', 'comunaCodigo',

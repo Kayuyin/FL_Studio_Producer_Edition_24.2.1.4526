@@ -11,7 +11,7 @@ const estadoLabels: Record<ReservaCancha['estado'], string> = {
 }
 
 export function MisReservas({
-  uid, tipoCuenta, reservas, loading, error, onNotice, onFindCanchas,
+  uid, tipoCuenta, reservas, loading, error, onNotice, onFindCanchas, embedded = false,
 }: {
   uid: string
   tipoCuenta: TipoCuenta
@@ -20,6 +20,7 @@ export function MisReservas({
   error: string
   onNotice: (mensaje: string) => void
   onFindCanchas: () => void
+  embedded?: boolean
 }) {
   const [busy, setBusy] = useState('')
   const [errorLocal, setErrorLocal] = useState('')
@@ -51,10 +52,10 @@ export function MisReservas({
     } finally { setBusy('') }
   }
 
-  return <div className="page">
+  return <div className={embedded ? 'owner-bookings-embedded' : 'page'}>
     <div className="page-heading">
       <div><p className="eyebrow">GESTIÓN DE CANCHAS</p>
-        <h1>{esDueno ? 'Solicitudes de reserva' : 'Mis reservas'}</h1>
+        {embedded ? <h2>Solicitudes de reserva</h2> : <h1>{esDueno ? 'Solicitudes de reserva' : 'Mis reservas'}</h1>}
         <p className="muted">{esDueno
           ? 'Revisa los horarios solicitados por equipos, acepta o rechaza y administra tus turnos.'
           : 'Consulta las respuestas de los dueños y cancela reservas que ya no necesites.'}</p></div>

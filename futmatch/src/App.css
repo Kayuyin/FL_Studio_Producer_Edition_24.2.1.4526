@@ -156,3 +156,9 @@
  .role-shortcut{padding:14px}
  .role-section{margin-top:25px}
 }
+
+/* Bandeja de contactos para cuentas dueñas de canchas */
+.chat-section-title{display:flex;align-items:center;gap:10px;margin:0 0 15px}
+.chat-subview{margin-top:10px}
+.chat-subview .chat-layout{margin-top:0}
+.chat-subview .posts-feedback{margin-top:5px}

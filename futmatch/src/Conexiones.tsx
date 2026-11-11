@@ -85,11 +85,12 @@ export function Matches({
 }
 
 export function Mensajes({
-  user, solicitudes, initialSelectedId,
+  user, solicitudes, initialSelectedId, embedded = false,
 }: {
   user: User
   solicitudes: Solicitud[]
   initialSelectedId?: string
+  embedded?: boolean
 }) {
   const conversations = solicitudes.filter((item) => item.estado === 'aceptada')
   const [selectedId, setSelectedId] = useState(initialSelectedId || '')
@@ -138,10 +139,14 @@ export function Mensajes({
     }
   }
 
-  return <div className="page">
-    <div className="page-heading"><div><p className="eyebrow">CONVERSACIONES</p><h1>Mensajes</h1><p className="muted">Solo puedes conversar cuando el autor acepta una solicitud de interés.</p></div></div>
+  return <div className={embedded ? 'chat-subview' : 'page'}>
+    {embedded
+      ? <h2 className="chat-section-title">Conversaciones activas <span className="request-count">{conversations.length}</span></h2>
+      : <div className="page-heading"><div><p className="eyebrow">CONVERSACIONES</p><h1>Mensajes</h1><p className="muted">Solo puedes conversar cuando el autor acepta una solicitud de interés.</p></div></div>}
     {conversations.length === 0
-      ? <p className="posts-feedback">Todavía no tienes conversaciones abiertas. Envía una solicitud desde Explorar o acepta una en Matches.</p>
+      ? <p className="posts-feedback">{embedded
+        ? 'Todavía no tienes conversaciones. Cuando aceptes una solicitud para tu cancha, podrás escribir aquí.'
+        : 'Todavía no tienes conversaciones abiertas. Envía una solicitud desde Explorar o acepta una en Matches.'}</p>
       : <div className="chat-layout">
         <aside className="chat-sidebar" aria-label="Conversaciones">
           {conversations.map((item) => <button
@@ -171,5 +176,50 @@ export function Mensajes({
           </form>
         </section>
       </div>}
+  </div>
+}
+
+/**
+ * Bandeja única del dueño de cancha: aceptar solicitudes recibidas
+ * y conversar con personas cuyo contacto ya fue aceptado.
+ * No muestra solicitudes enviadas ni opciones para buscar anuncios ajenos.
+ */
+export function ConversacionesCanchas({
+  user, solicitudes, loading, error, initialSelectedId,
+}: {
+  user: User
+  solicitudes: Solicitud[]
+  loading: boolean
+  error: string
+  initialSelectedId?: string
+}) {
+  const recibidas = solicitudes.filter((item) => item.autorPublicacionUid === user.uid)
+  const pendientes = recibidas.filter((item) => item.estado === 'pendiente')
+  const [focusedChatId, setFocusedChatId] = useState(initialSelectedId || '')
+
+  async function changeRequest(id: string, estado: 'aceptada' | 'rechazada') {
+    await responderSolicitud(id, estado)
+    if (estado === 'aceptada') setFocusedChatId(id)
+  }
+
+  return <div className="page">
+    <div className="page-heading">
+      <div><p className="eyebrow">GESTIÓN DE CONTACTOS</p><h1>Conversaciones de mis canchas</h1>
+        <p className="muted">Recibe solicitudes por tus anuncios. Acepta una para iniciar el chat con la persona interesada.</p></div>
+    </div>
+    {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}
+    {loading && !error && <p className="posts-feedback" role="status">Cargando solicitudes de tus canchas…</p>}
+    <section className="requests-section">
+      <h2>Solicitudes por responder <span className="request-count">{pendientes.length}</span></h2>
+      {pendientes.length
+        ? <div className="requests-grid">
+            {pendientes.map((item) => <SolicitudItem key={item.id} solicitud={item} user={user}
+              onOpenChat={setFocusedChatId} onChange={changeRequest} />)}
+          </div>
+        : <p className="posts-feedback">No tienes solicitudes pendientes. Cuando alguien quiera contactar por un anuncio de cancha, aparecerá aquí.</p>}
+    </section>
+    <section className="requests-section">
+      <Mensajes key={focusedChatId} user={user} solicitudes={recibidas} initialSelectedId={focusedChatId} embedded />
+    </section>
   </div>
 }

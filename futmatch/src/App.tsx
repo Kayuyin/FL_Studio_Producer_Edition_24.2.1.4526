@@ -302,6 +302,7 @@ function Dashboard({
   const currentView = tipoCuenta === 'dueno_cancha' && (view === 'explorar' || view === 'matches') ? 'inicio' : view
   function labelFor(item: (typeof navItems)[number]): string {
     if (tipoCuenta !== 'dueno_cancha') {
+      if (item.id === 'equipos') return tipoCuenta === 'jugador' ? 'Buscar equipos' : 'Buscar rivales'
       return item.id === 'publicar' && tipoCuenta === 'jugador' ? 'Buscar equipo' : item.label
     }
     if (item.id === 'publicar') return 'Anunciar cancha'
@@ -347,7 +348,11 @@ function Dashboard({
       {(notice || localNotice) && <div className="session-notice" role="status">
         <span>{localNotice || notice}</span>
         <button type="button" onClick={() => { setLocalNotice(''); onDismissNotice() }} aria-label="Cerrar aviso">×</button>
-      </div>}
+      </div>
+      {tipoCuenta === 'equipo' && <div className="session-notice" role="status">
+        <span>La cuenta Equipo fue reemplazada por Capitán. Cambia tu tipo de cuenta desde Perfil; se conservarán tu equipo, mensajes y partidos.</span>
+        <button className="secondary-button" type="button" onClick={() => goTo('perfil')}>Actualizar cuenta</button>
+      </div>}}
       {currentView === 'inicio' && <PanelPorRol nombre={displayName} perfil={perfil} tipoCuenta={tipoCuenta}
         uid={user.uid} publicaciones={publicaciones} solicitudes={solicitudes}
         loading={postsLoading} error={postsError} onNavigate={goTo} onExplore={explorarCategoria}
@@ -364,7 +369,10 @@ function Dashboard({
             user={user} perfil={perfil} onNotice={setLocalNotice} onBack={() => goTo('equipos')}
             onFindPlayers={() => explorarCategoria('persona_busca_equipo')} />
         : <CatalogoEquipos equipos={equipos} loading={equiposLoading} error={equiposError}
-            onOpenTeam={openEquipo} onFindVacancies={() => explorarCategoria('equipo_busca_jugadores')} />)}
+            onOpenTeam={openEquipo} onFindVacancies={() => explorarCategoria('equipo_busca_jugadores')}
+            onFindRivals={() => explorarCategoria('equipo_busca_rival')}
+            viewerTipoCuenta={tipoCuenta} currentUid={user.uid} miEquipo={miEquipo}
+            publicaciones={publicaciones} solicitudes={solicitudes} onInterest={onInterest} />)}
       {currentView === 'mi_equipo' && (tipoCuenta === 'capitan' || tipoCuenta === 'equipo') && <FichaEquipo
         key={miEquipo?.id || 'nuevo'} equipo={miEquipo} user={user} perfil={perfil}
         onNotice={setLocalNotice} onBack={() => goTo('equipos')}

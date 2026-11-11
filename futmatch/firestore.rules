@@ -250,7 +250,8 @@ service cloud.firestore {
       }
       function validEquipo(data) {
         return data.keys().hasOnly([
-            'ownerUid','nombre','descripcion','comuna','capitanUid','capitanNombre','escudo','modalidad','nivel','creadoEn'
+            'ownerUid','nombre','descripcion','region','regionCodigo','comuna','comunaCodigo',
+            'capitanUid','capitanNombre','escudo','modalidad','nivel','creadoEn'
           ])
           && data.keys().hasAll([
             'ownerUid','nombre','descripcion','comuna','capitanUid','capitanNombre','creadoEn'
@@ -259,6 +260,195 @@ service cloud.firestore {
           && data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 80
           && data.descripcion is string && data.descripcion.size() <= 350
           && data.comuna is string && data.comuna.size() >= 2 && data.comuna.size() <= 80
+          // Compatibilidad con equipos registrados antes de incluir región y comuna editables.
+          && (
+            !data.keys().hasAny(['region','regionCodigo','comunaCodigo'])
+            || (
+              data.keys().hasAll(['region','regionCodigo','comunaCodigo'])
+              && data.region is string && data.region.size() >= 3 && data.region.size() <= 80
+              && data.regionCodigo is string && data.regionCodigo.matches('^[0-9]{2}
+          && data.capitanNombre is string && data.capitanNombre.size() >= 2 && data.capitanNombre.size() <= 70
+          && data.get('escudo', '⚽') in ['⚽','🛡️','🏆','⭐','🔥']
+          && data.get('modalidad', 'Fútbol 7') in ['Fútbol 5','Fútbol 7','Fútbol 8','Fútbol 11']
+          && data.get('nivel', 'Amateur') in ['Amateur','Intermedio','Avanzado'];
+      }
+      function capitanPermitido(data) {
+        return (data.capitanUid == equipoId
+            && data.capitanNombre == get(/databases/$(database)/documents/usuarios/$(equipoId)).data.nombre)
+          || (exists(/databases/$(database)/documents/equipos/$(equipoId)/integrantes/$(data.capitanUid))
+            && data.capitanNombre ==
+              get(/databases/$(database)/documents/equipos/$(equipoId)/integrantes/$(data.capitanUid)).data.nombre);
+      }
+
+      allow get, list: if loggedIn();
+      allow create: if isManager()
+        && exists(/databases/$(database)/documents/usuarios/$(equipoId))
+        && get(/databases/$(database)/documents/usuarios/$(equipoId)).data.tipoCuenta in ['equipo','capitan']
+        && validEquipo(request.resource.data)
+        && request.resource.data.keys().hasAll(['region','regionCodigo','comunaCodigo'])
+        && request.resource.data.nombre ==
+          get(/databases/$(database)/documents/usuarios/$(equipoId)).data.nombreEquipo
+        && request.resource.data.capitanUid == equipoId
+        && capitanPermitido(request.resource.data)
+        && request.resource.data.creadoEn == request.time;
+      allow update: if isManager()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['nombre','descripcion','region','regionCodigo','comuna','comunaCodigo',
+            'capitanUid','capitanNombre','escudo','modalidad','nivel'])
+        && validEquipo(request.resource.data)
+        && (
+          (request.resource.data.capitanUid == resource.data.capitanUid
+            && request.resource.data.capitanNombre == resource.data.capitanNombre)
+          || capitanPermitido(request.resource.data)
+        );
+      allow delete: if false;
+
+      match /integrantes/{memberUid} {
+        function manager() {
+          return request.auth != null && request.auth.uid == equipoId;
+        }
+        function validoDesdeSolicitud(data) {
+          let solicitud = get(/databases/$(database)/documents/solicitudes/$(data.solicitudId)).data;
+          let publicacion = get(/databases/$(database)/documents/publicaciones/$(solicitud.publicacionId)).data;
+          return solicitud.estado == 'aceptada'
+            && solicitud.get('incorporacionConfirmada', false) == true
+            && (
+              (solicitud.tipoSolicitud == 'postulacion'
+                && solicitud.autorPublicacionUid == equipoId
+                && solicitud.interesadoUid == memberUid
+                && publicacion.categoria == 'equipo_busca_jugadores'
+                && publicacion.equipoId == equipoId
+                && data.nombre == solicitud.nombreInteresado)
+              || (solicitud.tipoSolicitud == 'contacto'
+                && solicitud.interesadoUid == equipoId
+                && solicitud.autorPublicacionUid == memberUid
+                && publicacion.categoria == 'persona_busca_equipo'
+                && data.nombre == solicitud.nombreAutor)
+            );
+        }
+        allow get, list: if request.auth != null;
+        allow create: if manager()
+          && memberUid != equipoId
+          && request.resource.data.keys().hasOnly(['uid','nombre','solicitudId','posicion','creadoEn'])
+          && request.resource.data.keys().hasAll(['uid','nombre','solicitudId','creadoEn'])
+          && request.resource.data.uid == memberUid
+          && request.resource.data.nombre is string
+          && request.resource.data.nombre.size() >= 2 && request.resource.data.nombre.size() <= 70
+          && request.resource.data.solicitudId is string
+          && request.resource.data.solicitudId.size() >= 2
+          && request.resource.data.get('posicion', 'Sin definir') in [
+            'Sin definir','Arquero','Defensa','Mediocampista','Delantero','Polifuncional'
+          ]
+          && exists(/databases/$(database)/documents/solicitudes/$(request.resource.data.solicitudId))
+          && validoDesdeSolicitud(request.resource.data)
+          && request.resource.data.creadoEn == request.time;
+        // El miembro también puede salir voluntariamente de una plantilla.
+        // Para evitar equipos sin capitán, primero debe designarse otro si corresponde.
+        allow delete: if request.auth != null
+          && (manager() || request.auth.uid == memberUid)
+          && get(/databases/$(database)/documents/equipos/$(equipoId)).data.capitanUid != memberUid;
+        allow update: if manager()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['posicion'])
+          && request.resource.data.posicion in [
+            'Sin definir','Arquero','Defensa','Mediocampista','Delantero','Polifuncional'
+          ];
+      }
+    }
+
+)
+              && data.comunaCodigo is string
+              && data.comunaCodigo.matches('^' + data.regionCodigo + '[0-9]{3}
+          && data.capitanNombre is string && data.capitanNombre.size() >= 2 && data.capitanNombre.size() <= 70
+          && data.get('escudo', '⚽') in ['⚽','🛡️','🏆','⭐','🔥']
+          && data.get('modalidad', 'Fútbol 7') in ['Fútbol 5','Fútbol 7','Fútbol 8','Fútbol 11']
+          && data.get('nivel', 'Amateur') in ['Amateur','Intermedio','Avanzado'];
+      }
+      function capitanPermitido(data) {
+        return (data.capitanUid == equipoId
+            && data.capitanNombre == get(/databases/$(database)/documents/usuarios/$(equipoId)).data.nombre)
+          || (exists(/databases/$(database)/documents/equipos/$(equipoId)/integrantes/$(data.capitanUid))
+            && data.capitanNombre ==
+              get(/databases/$(database)/documents/equipos/$(equipoId)/integrantes/$(data.capitanUid)).data.nombre);
+      }
+
+      allow get, list: if loggedIn();
+      allow create: if isManager()
+        && exists(/databases/$(database)/documents/usuarios/$(equipoId))
+        && get(/databases/$(database)/documents/usuarios/$(equipoId)).data.tipoCuenta in ['equipo','capitan']
+        && validEquipo(request.resource.data)
+        && request.resource.data.nombre ==
+          get(/databases/$(database)/documents/usuarios/$(equipoId)).data.nombreEquipo
+        && request.resource.data.comuna ==
+          get(/databases/$(database)/documents/usuarios/$(equipoId)).data.comuna
+        && request.resource.data.capitanUid == equipoId
+        && capitanPermitido(request.resource.data)
+        && request.resource.data.creadoEn == request.time;
+      allow update: if isManager()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['nombre','descripcion','comuna','capitanUid','capitanNombre','escudo','modalidad','nivel'])
+        && validEquipo(request.resource.data)
+        && (
+          (request.resource.data.capitanUid == resource.data.capitanUid
+            && request.resource.data.capitanNombre == resource.data.capitanNombre)
+          || capitanPermitido(request.resource.data)
+        );
+      allow delete: if false;
+
+      match /integrantes/{memberUid} {
+        function manager() {
+          return request.auth != null && request.auth.uid == equipoId;
+        }
+        function validoDesdeSolicitud(data) {
+          let solicitud = get(/databases/$(database)/documents/solicitudes/$(data.solicitudId)).data;
+          let publicacion = get(/databases/$(database)/documents/publicaciones/$(solicitud.publicacionId)).data;
+          return solicitud.estado == 'aceptada'
+            && solicitud.get('incorporacionConfirmada', false) == true
+            && (
+              (solicitud.tipoSolicitud == 'postulacion'
+                && solicitud.autorPublicacionUid == equipoId
+                && solicitud.interesadoUid == memberUid
+                && publicacion.categoria == 'equipo_busca_jugadores'
+                && publicacion.equipoId == equipoId
+                && data.nombre == solicitud.nombreInteresado)
+              || (solicitud.tipoSolicitud == 'contacto'
+                && solicitud.interesadoUid == equipoId
+                && solicitud.autorPublicacionUid == memberUid
+                && publicacion.categoria == 'persona_busca_equipo'
+                && data.nombre == solicitud.nombreAutor)
+            );
+        }
+        allow get, list: if request.auth != null;
+        allow create: if manager()
+          && memberUid != equipoId
+          && request.resource.data.keys().hasOnly(['uid','nombre','solicitudId','posicion','creadoEn'])
+          && request.resource.data.keys().hasAll(['uid','nombre','solicitudId','creadoEn'])
+          && request.resource.data.uid == memberUid
+          && request.resource.data.nombre is string
+          && request.resource.data.nombre.size() >= 2 && request.resource.data.nombre.size() <= 70
+          && request.resource.data.solicitudId is string
+          && request.resource.data.solicitudId.size() >= 2
+          && request.resource.data.get('posicion', 'Sin definir') in [
+            'Sin definir','Arquero','Defensa','Mediocampista','Delantero','Polifuncional'
+          ]
+          && exists(/databases/$(database)/documents/solicitudes/$(request.resource.data.solicitudId))
+          && validoDesdeSolicitud(request.resource.data)
+          && request.resource.data.creadoEn == request.time;
+        // El miembro también puede salir voluntariamente de una plantilla.
+        // Para evitar equipos sin capitán, primero debe designarse otro si corresponde.
+        allow delete: if request.auth != null
+          && (manager() || request.auth.uid == memberUid)
+          && get(/databases/$(database)/documents/equipos/$(equipoId)).data.capitanUid != memberUid;
+        allow update: if manager()
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['posicion'])
+          && request.resource.data.posicion in [
+            'Sin definir','Arquero','Defensa','Mediocampista','Delantero','Polifuncional'
+          ];
+      }
+    }
+
+)
+            )
+          )
           && data.capitanUid is string
           && data.capitanNombre is string && data.capitanNombre.size() >= 2 && data.capitanNombre.size() <= 70
           && data.get('escudo', '⚽') in ['⚽','🛡️','🏆','⭐','🔥']

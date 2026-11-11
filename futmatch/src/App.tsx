@@ -6,7 +6,8 @@ import { auth, db } from './firebase'
 import AuthScreen from './AuthScreen'
 import { escucharPublicaciones, eliminarPublicacion } from './publicaciones'
 import type { Publicacion, Categoria } from './publicaciones'
-import { Home, Explore, Publish } from './VistasPublicaciones'
+import { Explore, Publish } from './VistasPublicaciones'
+import { PanelPorRol, MisPublicaciones } from './PanelPorRol'
 import { observarSolicitudes, solicitarParticipacion } from './solicitudes'
 import type { Solicitud } from './solicitudes'
 import { Matches, Mensajes } from './Conexiones'
@@ -15,11 +16,12 @@ import type { PerfilUsuario } from './Perfil'
 import { TIPOS_CUENTA, tipoCuentaValido } from './tiposCuenta'
 import './App.css'
 
-type View = 'inicio' | 'explorar' | 'publicar' | 'matches' | 'mensajes' | 'perfil' | 'ayuda'
+type View = 'inicio' | 'explorar' | 'publicar' | 'mis_publicaciones' | 'matches' | 'mensajes' | 'perfil' | 'ayuda'
 const navItems: { id: View; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Inicio', icon: '⌂' },
   { id: 'explorar', label: 'Explorar', icon: '⌕' },
   { id: 'publicar', label: 'Publicar', icon: '+' },
+  { id: 'mis_publicaciones', label: 'Mis publicaciones', icon: '▤' },
   { id: 'matches', label: 'Matches', icon: '♥' },
   { id: 'mensajes', label: 'Mensajes', icon: '▱' },
   { id: 'perfil', label: 'Perfil', icon: '◉' },
@@ -58,6 +60,7 @@ function Dashboard({
 
   const [view, setView] = useState<View>('inicio')
   const [filter, setFilter] = useState<Categoria | 'todos'>('todos')
+  const [categoriaInicial, setCategoriaInicial] = useState<Categoria>('persona_busca_equipo')
   const [publicaciones, setPublicaciones] = useState<Publicacion[]>([])
   const [postsLoading, setPostsLoading] = useState(true)
   const [postsError, setPostsError] = useState('')
@@ -68,8 +71,23 @@ function Dashboard({
   const [localNotice, setLocalNotice] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
 
+  function defaultCategoria(): Categoria {
+    return tipoCuenta === 'dueno_cancha' ? 'ofrece_cancha'
+      : tipoCuenta === 'capitan' || tipoCuenta === 'equipo' ? 'equipo_busca_jugadores'
+      : 'persona_busca_equipo'
+  }
   const goTo = (nextView: View) => {
+    if (nextView === 'publicar') setCategoriaInicial(defaultCategoria())
     setView(nextView)
+    setMenuOpen(false)
+  }
+  const explorarCategoria = (categoria: Categoria) => {
+    setFilter(categoria)
+    goTo('explorar')
+  }
+  const publicarCategoria = (categoria: Categoria) => {
+    setCategoriaInicial(categoria)
+    setView('publicar')
     setMenuOpen(false)
   }
 
@@ -142,7 +160,7 @@ function Dashboard({
         {navItems.map((item) => <button
           className={view === item.id ? 'active' : ''} type="button" key={item.id}
           onClick={() => goTo(item.id)}
-        ><span className="nav-icon">{item.icon}</span>{item.label}
+        ><span className="nav-icon">{item.icon}</span>{item.id === 'publicar' && tipoCuenta === 'dueno_cancha' ? 'Anunciar cancha' : item.label}
           {item.id === 'matches' && newRequests > 0 && <span className="nav-badge">{newRequests}</span>}
         </button>)}
       </nav>
@@ -166,13 +184,22 @@ function Dashboard({
         <span>{localNotice || notice}</span>
         <button type="button" onClick={() => { setLocalNotice(''); onDismissNotice() }} aria-label="Cerrar aviso">×</button>
       </div>}
-      {view === 'inicio' && <Home name={displayName} onNavigate={goTo}
-        publicaciones={publicaciones} loading={postsLoading} error={postsError}
-        userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />}
+      {view === 'inicio' && <PanelPorRol nombre={displayName} perfil={perfil} tipoCuenta={tipoCuenta}
+        uid={user.uid} publicaciones={publicaciones} solicitudes={solicitudes}
+        loading={postsLoading} error={postsError} onNavigate={goTo} onExplore={explorarCategoria}
+        onPublish={publicarCategoria} onInterest={onInterest} onDelete={onDelete} />}
       {view === 'explorar' && <Explore publicaciones={publicaciones} filter={filter} setFilter={setFilter}
         loading={postsLoading} error={postsError}
         userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />}
-      {view === 'publicar' && <Publish user={user} nombreAutor={displayName} onCreated={afterPublish} />}
+      {view === 'publicar' && <Publish
+        key={`${tipoCuenta}:${categoriaInicial}`}
+        user={user} nombreAutor={displayName} tipoCuenta={tipoCuenta}
+        equipoRegistrado={perfil?.nombreEquipo || ''} canchaRegistrada={perfil?.nombreCancha || ''}
+        regionPerfil={perfil?.regionCodigo || ''} comunaPerfil={perfil?.comunaCodigo || ''}
+        categoriaInicial={categoriaInicial} onCreated={afterPublish} />}
+      {view === 'mis_publicaciones' && <MisPublicaciones uid={user.uid}
+        publicaciones={publicaciones} solicitudes={solicitudes} loading={postsLoading}
+        error={postsError} onPublish={() => goTo('publicar')} onInterest={onInterest} onDelete={onDelete} />}
       {view === 'matches' && <Matches user={user} solicitudes={solicitudes} loading={requestsLoading}
         error={requestsError} onOpenChat={openChat} />}
       {view === 'mensajes' && <Mensajes user={user} solicitudes={solicitudes} initialSelectedId={selectedChatId} />}
@@ -183,7 +210,7 @@ function Dashboard({
         button="Explorar publicaciones" onClick={() => goTo('explorar')} />}
     </main>
     <nav className="bottom-nav">
-      {navItems.slice(0, 5).map((item) => <button className={view === item.id ? 'active' : ''}
+      {navItems.filter((item) => item.id !== 'mis_publicaciones').slice(0, 5).map((item) => <button className={view === item.id ? 'active' : ''}
         type="button" key={item.id} onClick={() => goTo(item.id)}><span>{item.icon}</span>{item.label}</button>)}
     </nav>
   </div>

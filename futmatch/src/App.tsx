@@ -201,7 +201,7 @@ function Dashboard({
     setPartidosLoading(true)
     return escucharPartidos(user.uid,
       items => { setPartidos(items); setPartidosLoading(false); setPartidosError('') },
-      error => { setPartidosLoading(false); setPartidosError(`No se pudieron cargar partidos (${error.code || 'error'}).`) })
+      error => { setPartidosLoading(false); setPartidosError(`No se pudieron cargar partidos (${(error as Error & { code?: string }).code || 'error'}).`) })
   }, [user.uid, tipoCuenta, perfilLoading])
 
   useEffect(() => {
@@ -213,7 +213,7 @@ function Dashboard({
     setReservasLoading(true)
     return escucharReservas(user.uid,
       items => { setReservas(items); setReservasLoading(false); setReservasError('') },
-      error => { setReservasLoading(false); setReservasError(`No se pudieron cargar reservas (${error.code || 'error'}). Comprueba las reglas de Firestore.`) })
+      error => { setReservasLoading(false); setReservasError(`No se pudieron cargar reservas (${(error as Error & { code?: string }).code || 'error'}). Comprueba las reglas de Firestore.`) })
   }, [user.uid, tipoCuenta, perfilLoading])
 
   useEffect(() => observarSolicitudes(

@@ -124,6 +124,14 @@ export async function nombrarCapitan(equipoId: string, integrante: IntegranteEqu
   })
 }
 
+export async function nombrarCapitanResponsable(equipoId: string, nombreResponsable: string): Promise<void> {
+  if (nombreResponsable.trim().length < 2) throw new Error('Actualiza primero tu nombre en Perfil.')
+  await updateDoc(doc(db, 'equipos', equipoId), {
+    capitanUid: equipoId,
+    capitanNombre: nombreResponsable.trim(),
+  })
+}
+
 export async function quitarIntegrante(
   equipoId: string, uid: string, solicitudId?: string,
 ): Promise<void> {

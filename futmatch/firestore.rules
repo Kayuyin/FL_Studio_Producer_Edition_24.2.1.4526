@@ -408,7 +408,10 @@ service cloud.firestore {
       function validApplicantRole(data) {
         let interestedRole = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.get('tipoCuenta', 'jugador');
         let publication = get(/databases/$(database)/documents/publicaciones/$(data.publicacionId)).data;
-        return (interestedRole in ['equipo', 'capitan'] && data.tipoSolicitud == 'contacto')
+        return (interestedRole in ['equipo', 'capitan'] && data.tipoSolicitud == 'contacto'
+            && (publication.categoria != 'equipo_busca_rival'
+              || (exists(/databases/$(database)/documents/equipos/$(request.auth.uid))
+                && publication.equipoId != request.auth.uid)))
           || (interestedRole == 'jugador'
             && data.tipoSolicitud == 'postulacion'
             && publication.categoria == 'equipo_busca_jugadores'

@@ -348,11 +348,11 @@ function Dashboard({
       {(notice || localNotice) && <div className="session-notice" role="status">
         <span>{localNotice || notice}</span>
         <button type="button" onClick={() => { setLocalNotice(''); onDismissNotice() }} aria-label="Cerrar aviso">×</button>
-      </div>
+      </div>}
       {tipoCuenta === 'equipo' && <div className="session-notice" role="status">
         <span>La cuenta Equipo fue reemplazada por Capitán. Cambia tu tipo de cuenta desde Perfil; se conservarán tu equipo, mensajes y partidos.</span>
         <button className="secondary-button" type="button" onClick={() => goTo('perfil')}>Actualizar cuenta</button>
-      </div>}}
+      </div>}
       {currentView === 'inicio' && <PanelPorRol nombre={displayName} perfil={perfil} tipoCuenta={tipoCuenta}
         uid={user.uid} publicaciones={publicaciones} solicitudes={solicitudes}
         loading={postsLoading} error={postsError} onNavigate={goTo} onExplore={explorarCategoria}

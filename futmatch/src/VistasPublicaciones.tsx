@@ -215,11 +215,17 @@ export function Explore({
   const [search, setSearch] = useState('')
   const [nivel, setNivel] = useState<Nivel | 'todos'>('todos')
   const [comunaCancha, setComunaCancha] = useState('')
-  const filtroActivo = viewerTipoCuenta === 'jugador' ? 'equipo_busca_jugadores' : filter
+  const categoriasVisibles = viewerTipoCuenta === 'equipo'
+    ? tipos.filter((tipo) => tipo !== 'equipo_busca_jugadores')
+    : tipos
+  const filtroActivo = viewerTipoCuenta === 'jugador'
+    ? 'equipo_busca_jugadores'
+    : viewerTipoCuenta === 'equipo' && filter === 'equipo_busca_jugadores' ? 'todos' : filter
   const result = useMemo(() => {
     const term = search.trim().toLocaleLowerCase('es-CL')
     return publicaciones.filter((post) =>
       (viewerTipoCuenta !== 'jugador' || post.autorTipoCuenta === 'capitan')
+      && (viewerTipoCuenta !== 'equipo' || post.categoria !== 'equipo_busca_jugadores')
       && (filtroActivo === 'todos' || post.categoria === filtroActivo)
       && (filtroActivo === 'busca_cancha' || filtroActivo === 'ofrece_cancha' || nivel === 'todos' || post.nivel === nivel)
       && (!['busca_cancha', 'ofrece_cancha'].includes(filtroActivo) || !comunaCancha || post.comuna === comunaCancha)
@@ -234,14 +240,16 @@ export function Explore({
       <h1>Explorar publicaciones</h1>
       <p className="muted">{viewerTipoCuenta === 'jugador'
         ? 'Revisa las vacantes publicadas por capitanes y postula al equipo que te interese.'
-        : 'Encuentra jugadores, equipos, rivales, ofertas y solicitudes de canchas.'}</p>
+        : viewerTipoCuenta === 'equipo'
+          ? 'Encuentra jugadores que buscan equipo, equipos rivales y canchas. Las vacantes de otros equipos no aparecen aquí.'
+          : 'Encuentra jugadores, equipos, rivales, ofertas y solicitudes de canchas.'}</p>
     </div></div>
     <div className="filters" role="group" aria-label="Filtrar por categoría">
       {viewerTipoCuenta === 'jugador'
         ? <span className="player-vacancy-label">⚽ Vacantes publicadas por capitanes</span>
         : <>
-            <button className={filter === 'todos' ? 'selected' : ''} aria-pressed={filter === 'todos'} onClick={() => setFilter('todos')}>Todas</button>
-            {tipos.map((tipo) => <button key={tipo} className={filter === tipo ? 'selected' : ''} aria-pressed={filter === tipo} onClick={() => setFilter(tipo)}>{categorias[tipo].icon} {categorias[tipo].label}</button>)}
+            <button className={filtroActivo === 'todos' ? 'selected' : ''} aria-pressed={filtroActivo === 'todos'} onClick={() => setFilter('todos')}>Todas</button>
+            {categoriasVisibles.map((tipo) => <button key={tipo} className={filtroActivo === tipo ? 'selected' : ''} aria-pressed={filtroActivo === tipo} onClick={() => setFilter(tipo)}>{categorias[tipo].icon} {categorias[tipo].label}</button>)}
           </>}
     </div>
     <div className="filter-row">

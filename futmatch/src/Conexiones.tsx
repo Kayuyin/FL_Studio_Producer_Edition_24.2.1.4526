@@ -4,6 +4,9 @@ import type { User } from 'firebase/auth'
 import type { Mensaje, Solicitud } from './solicitudes'
 import { confirmarIncorporacion, enviarMensaje, observarMensajes, responderSolicitud } from './solicitudes'
 import type { Publicacion } from './publicaciones'
+import { obtenerPublicacionPorId } from './publicaciones'
+import type { Partido } from './partidos'
+import { programarPartido } from './partidos'
 import type { EquipoRegistrado } from './equipos'
 import { incorporarJugador } from './equipos'
 
@@ -58,7 +61,7 @@ function SolicitudItem({
 
 export function Matches({
   user, solicitudes, loading, error, onOpenChat, publicaciones, miEquipo,
-  equipos, onOpenTeam, onFindCanchas,
+  equipos, onOpenTeam, onFindCanchas, partidos, onOpenPartidos, onNotice,
 }: {
   user: User
   solicitudes: Solicitud[]
@@ -69,8 +72,12 @@ export function Matches({
   miEquipo: EquipoRegistrado | null
   equipos: EquipoRegistrado[]
   onOpenTeam: (id: string) => void
-  onFindCanchas: () => void
+  onFindCanchas: (partidoId: string) => void
+  partidos: Partido[]
+  onOpenPartidos: () => void
+  onNotice: (text: string) => void
 }) {
+  const [creatingMatch, setCreatingMatch] = useState('')
   const [adding, setAdding] = useState('')
   const [confirming, setConfirming] = useState('')
   const [actionError, setActionError] = useState('')
@@ -106,6 +113,28 @@ export function Matches({
         : 'No se pudo incorporar: el jugador puede estar ya registrado en la plantilla.')
     } finally { setAdding('') }
   }
+  async function createMatch(item: Solicitud) {
+    setCreatingMatch(item.id)
+    setActionError('')
+    setActionSuccess('')
+    try {
+      const post = publicaciones.find(entry => entry.id === item.publicacionId)
+        ?? await obtenerPublicacionPorId(item.publicacionId)
+      if (!post || post.categoria !== 'equipo_busca_rival') {
+        throw new Error('El desafío ya no está disponible. No se pudo programar el partido.')
+      }
+      const local = equipos.find(e => e.id === post.equipoId)
+      const visita = equipos.find(e => e.id === item.interesadoUid)
+      if (!local || !visita) throw new Error('Los dos equipos deben estar registrados.')
+      await programarPartido(item, post, local, visita, user.uid)
+      onNotice('Partido propuesto. El otro equipo debe confirmarlo en Mis partidos.')
+    } catch (cause) {
+      const code = (cause as { code?: string }).code
+      setActionError(code === 'permission-denied'
+        ? 'Firestore rechazó la programación del partido. Revisa las reglas y los equipos participantes.'
+        : (cause as Error).message || 'No fue posible programar el partido.')
+    } finally { setCreatingMatch('') }
+  }
   function actions(item: Solicitud) {
     if (item.estado !== 'aceptada') return null
     const post = publicaciones.find((entry) => entry.id === item.publicacionId)
@@ -122,6 +151,7 @@ export function Matches({
     )
     const rivalMatch = post?.categoria === 'equipo_busca_rival'
       && item.tipoSolicitud === 'contacto' && miEquipo != null
+    const partido = partidos.find(p => p.solicitudId === item.id)
     const otherUid = item.interesadoUid === user.uid ? item.autorPublicacionUid : item.interesadoUid
     const rival = equipos.find((team) => team.ownerUid === otherUid)
     return <>
@@ -137,9 +167,18 @@ export function Matches({
         <button type="button" className="secondary-button" onClick={() => onOpenTeam(rival.id)}>
           Ver equipo rival y plantilla
         </button>
-        <button type="button" className="primary-button" onClick={onFindCanchas}>
-          ▣ Buscar cancha para este match
-        </button>
+        {!partido
+          ? <button type="button" className="primary-button" disabled={!!creatingMatch}
+              onClick={() => { void createMatch(item) }}>
+              {creatingMatch === item.id ? 'Programando…' : 'Programar partido'}
+            </button>
+          : <button type="button" className="secondary-button" onClick={onOpenPartidos}>
+              {partido.estado === 'propuesto' ? 'Confirmar propuesta en Mis partidos' : 'Ver partido'}
+            </button>}
+        {partido?.estado === 'confirmado' && !partido.reservaConfirmadaId &&
+          <button type="button" className="primary-button" onClick={() => onFindCanchas(partido.id)}>
+            ▣ Buscar cancha para el partido
+          </button>}
       </>}
     </>
   }

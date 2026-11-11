@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { User } from 'firebase/auth'
 import type { EquipoRegistrado, IntegranteEquipo } from './equipos'
-import { crearEquipo, editarEquipo, escucharPlantilla, nombrarCapitan, quitarIntegrante } from './equipos'
+import { actualizarPosicion, crearEquipo, editarEquipo, escucharPlantilla,
+  nombrarCapitan, nombrarCapitanResponsable, quitarIntegrante, ESCUDOS_EQUIPO, POSICIONES_EQUIPO } from './equipos'
 import type { PerfilUsuario } from './Perfil'
 
 export function CatalogoEquipos({
@@ -33,10 +34,11 @@ export function CatalogoEquipos({
     {!loading && !error && (filtrados.length
       ? <div className="post-grid team-grid">
         {filtrados.map((team) => <article key={team.id} className="team-card">
-          <div className="team-shield">⚽</div>
+          <div className="team-shield">{team.escudo}</div>
           <h2>{team.nombre}</h2>
           <p className="muted">{team.comuna}</p>
           <p className="team-captain"><strong>Capitán:</strong> {team.capitanNombre || 'Por asignar'}</p>
+          <p className="muted">{team.modalidad} · {team.nivel}</p>
           <p className="team-description">{team.descripcion || 'Equipo de la comunidad FutMatch.'}</p>
           <button type="button" className="secondary-button" onClick={() => onOpenTeam(team.id)}>Ver plantilla y capitán →</button>
         </article>)}
@@ -62,6 +64,9 @@ export function FichaEquipo({
   const [saving, setSaving] = useState(false)
   const [nombre, setNombre] = useState(equipo?.nombre || perfil?.nombreEquipo || '')
   const [descripcion, setDescripcion] = useState(equipo?.descripcion || perfil?.bio || '')
+  const [escudo, setEscudo] = useState(equipo?.escudo || '⚽')
+  const [modalidad, setModalidad] = useState(equipo?.modalidad || 'Fútbol 7')
+  const [nivel, setNivel] = useState(equipo?.nivel || 'Amateur')
 
   useEffect(() => {
     if (!equipo) { setIntegrantes([]); return }
@@ -81,7 +86,7 @@ export function FichaEquipo({
     setSaving(true)
     setError('')
     try {
-      await crearEquipo(user, perfil)
+      await crearEquipo(user, perfil, escudo, modalidad, nivel)
       onNotice('Equipo registrado. Ya puedes publicar convocatorias y mostrar su plantilla.')
     } catch (cause) {
       const code = (cause as { code?: string }).code
@@ -97,7 +102,7 @@ export function FichaEquipo({
     setSaving(true)
     setError('')
     try {
-      await editarEquipo(equipo.id, nombre, descripcion, equipo.comuna)
+      await editarEquipo(equipo.id, nombre, descripcion, equipo.comuna, escudo, modalidad, nivel)
       onNotice('Datos del equipo actualizados.')
     } catch (cause) {
       setError((cause as Error).message || 'No se pudieron actualizar los datos del equipo.')
@@ -116,12 +121,24 @@ export function FichaEquipo({
     } finally { setSaving(false) }
   }
 
+  async function retomarCapitania() {
+    if (!equipo || !isManager || !perfil?.nombre) return
+    setSaving(true)
+    setError('')
+    try {
+      await nombrarCapitanResponsable(equipo.id, perfil.nombre)
+      onNotice('Volviste a figurar como capitán del equipo.')
+    } catch {
+      setError('No se pudo recuperar la capitanía. Revisa tu nombre de Perfil y las reglas.')
+    } finally { setSaving(false) }
+  }
+
   async function remove(member: IntegranteEquipo) {
     if (!equipo || (!isManager && member.uid !== user.uid)) return
     setSaving(true)
     setError('')
     try {
-      await quitarIntegrante(equipo.id, member.uid, !isManager ? member.solicitudId : undefined)
+      await quitarIntegrante(equipo.id, member.uid, member.solicitudId)
       onNotice(!isManager
         ? 'Saliste del equipo y retiraste tu consentimiento de la plantilla.'
         : 'Jugador retirado de la plantilla.')
@@ -129,6 +146,36 @@ export function FichaEquipo({
       setError('No se pudo retirar al jugador. No puedes quitar al capitán actual.')
     } finally { setSaving(false) }
   }
+
+  async function changePosition(member: IntegranteEquipo, next: string) {
+    if (!equipo || !isManager) return
+    setSaving(true)
+    setError('')
+    try {
+      await actualizarPosicion(equipo.id, member.uid, next)
+      onNotice('Posición del jugador actualizada.')
+    } catch {
+      setError('No se pudo cambiar la posición del jugador.')
+    } finally { setSaving(false) }
+  }
+
+  const datosDeportivos = <div className="form-columns">
+    <label>Escudo representativo
+      <select value={escudo} onChange={event => setEscudo(event.target.value)}>
+        {ESCUDOS_EQUIPO.map(icono => <option key={icono} value={icono}>{icono}</option>)}
+      </select>
+    </label>
+    <label>Modalidad
+      <select value={modalidad} onChange={event => setModalidad(event.target.value)}>
+        {['Fútbol 5','Fútbol 7','Fútbol 8','Fútbol 11'].map(v => <option key={v}>{v}</option>)}
+      </select>
+    </label>
+    <label>Nivel
+      <select value={nivel} onChange={event => setNivel(event.target.value)}>
+        {['Amateur','Intermedio','Avanzado'].map(v => <option key={v}>{v}</option>)}
+      </select>
+    </label>
+  </div>
 
   if (!equipo) return <div className="page narrow-page">
     <div className="page-heading"><div><p className="eyebrow">MI EQUIPO</p><h1>Registrar mi equipo</h1>
@@ -138,6 +185,7 @@ export function FichaEquipo({
       <p><strong>Nombre:</strong> {perfil?.nombreEquipo || 'Falta completar el nombre en Perfil'}</p>
       <p><strong>Responsable:</strong> {perfil?.nombre || user.displayName || 'Sin nombre'}</p>
       <p><strong>Comuna:</strong> {perfil?.comuna || 'Sin comuna'}</p>
+      {datosDeportivos}
       {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}
       <button type="button" className="primary-button" disabled={saving || !perfil?.nombreEquipo}
         onClick={() => { void register() }}>{saving ? 'Registrando…' : 'Registrar mi equipo'}</button>
@@ -149,8 +197,8 @@ export function FichaEquipo({
   const captainInRoster = integrantes.find((item) => item.uid === equipo.capitanUid)
   return <div className="page">
     <div className="page-heading">
-      <div><p className="eyebrow">FICHA DE EQUIPO</p><h1>⚽ {equipo.nombre}</h1>
-        <p className="muted">{equipo.comuna} · {equipo.descripcion || 'Equipo de la comunidad FutMatch.'}</p></div>
+      <div><p className="eyebrow">FICHA DE EQUIPO</p><h1>{equipo.escudo} {equipo.nombre}</h1>
+        <p className="muted">{equipo.comuna} · {equipo.modalidad} · {equipo.nivel} · {equipo.descripcion || 'Equipo de la comunidad FutMatch.'}</p></div>
       <button className="secondary-button" type="button" onClick={onBack}>← Volver a equipos</button>
     </div>
     <section className="team-roster-card">
@@ -161,6 +209,10 @@ export function FichaEquipo({
           <small>{captainInRoster ? 'Jugador de la plantilla · Capitán' : 'Responsable del equipo · Capitán'}</small>
         </div>
       </div>
+      {isManager && equipo.capitanUid !== user.uid && <button type="button" className="secondary-button"
+        disabled={saving} onClick={() => { void retomarCapitania() }}>
+        Volver a ser capitán
+      </button>}
     </section>
     <section className="team-roster-card">
       <h2>Plantilla <span className="request-count">{mostrados.length + (equipo.capitanUid ? 1 : 0)}</span></h2>
@@ -169,9 +221,15 @@ export function FichaEquipo({
       {mostrados.length === 0 && !loading && <p className="posts-feedback">Todavía no hay jugadores incorporados a la plantilla.</p>}
       {mostrados.map((member) => <div className="team-member" key={member.uid}>
         <div className="team-member-avatar">{member.nombre.charAt(0).toUpperCase()}</div>
-        <div><strong>{member.nombre}</strong><small>Jugador confirmado</small></div>
+        <div><strong>{member.nombre}</strong><small>Jugador confirmado · {member.posicion}</small></div>
         {(isManager || member.uid === user.uid) && <div className="team-member-actions">
-          {isManager && <button type="button" className="secondary-button" disabled={saving} onClick={() => { void captain(member) }}>Nombrar capitán</button>}
+          {isManager && <>
+            <select aria-label={`Posición de ${member.nombre}`} disabled={saving} value={member.posicion}
+              onChange={event => { void changePosition(member, event.target.value) }}>
+              {POSICIONES_EQUIPO.map(pos => <option key={pos}>{pos}</option>)}
+            </select>
+            <button type="button" className="secondary-button" disabled={saving} onClick={() => { void captain(member) }}>Nombrar capitán</button>
+          </>}
           <button type="button" className="delete-post-button" disabled={saving} onClick={() => { void remove(member) }}>
             {isManager ? 'Quitar' : 'Salir del equipo'}
           </button>
@@ -188,6 +246,7 @@ export function FichaEquipo({
         <label>Descripción
           <textarea value={descripcion} maxLength={350} rows={3} onChange={(event) => setDescripcion(event.target.value)} />
         </label>
+        {datosDeportivos}
         <div className="request-actions">
           <button className="primary-button" disabled={saving} type="submit">Guardar datos</button>
           <button className="secondary-button" type="button" onClick={onFindPlayers}>Buscar jugadores</button>

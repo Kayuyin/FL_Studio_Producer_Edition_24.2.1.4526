@@ -88,8 +88,11 @@ export function PublicacionCard({
     setError('')
     try {
       await onDelete(post)
-    } catch {
-      setError('No se pudo eliminar la publicación. Revisa tu conexión y los permisos de Firestore.')
+    } catch (cause) {
+      const code = (cause as { code?: string }).code
+      setError(code === 'permission-denied'
+        ? 'Firestore no autorizó eliminar esta publicación.'
+        : (cause as Error).message || 'No se pudo eliminar la publicación.')
       setDeleting(false)
       setConfirmDelete(false)
     }
@@ -291,6 +294,9 @@ export function Publish({
   )
   const [equipoNombre, setEquipoNombre] = useState(equipoRegistrado)
   const [nombreCancha, setNombreCancha] = useState(canchaRegistrada)
+  const [direccionCancha, setDireccionCancha] = useState('')
+  const [precioHora, setPrecioHora] = useState('')
+  const [horariosCancha, setHorariosCancha] = useState('')
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [regionCodigo, setRegionCodigo] = useState(regionPerfil)
@@ -325,6 +331,12 @@ export function Publish({
       setError('Debes registrar el nombre de tu cancha en el perfil o en esta publicación.')
       return
     }
+    if (isOffer && (direccionCancha.trim().length < 5 || precioHora.trim() === ''
+      || !Number.isInteger(Number(precioHora)) || Number(precioHora) < 0 || Number(precioHora) > 1000000
+      || horariosCancha.length > 200)) {
+      setError('Indica la dirección y el precio por hora de la cancha. Si es gratuita, escribe 0.')
+      return
+    }
     if (isEquipo && !equipo) {
       setError('Antes de publicar una convocatoria o buscar rival, registra tu equipo en Mi equipo.')
       return
@@ -335,6 +347,10 @@ export function Publish({
     }
     if (categoria === 'equipo_busca_rival' && (!fecha || !hora)) {
       setError('Para buscar un rival, indica la fecha y hora propuestas.')
+      return
+    }
+    if (categoria === 'equipo_busca_rival' && !/^([01]\d|2[0-3]):00$/.test(hora)) {
+      setError('Para reservar cancha, los partidos deben empezar a una hora exacta: 18:00, 19:00, 20:00, etc.')
       return
     }
     if (fecha && fecha < minDate) {
@@ -361,7 +377,8 @@ export function Publish({
     setSending(true)
     try {
       if (isOffer) {
-        await registrarCanchaYAnuncio(datos, region!.nombre, regionCodigo, comunaCodigo)
+        await registrarCanchaYAnuncio(datos, region!.nombre, regionCodigo, comunaCodigo,
+          direccionCancha, Number(precioHora), horariosCancha)
       } else {
         await crearPublicacion(datos)
       }
@@ -407,9 +424,26 @@ export function Publish({
             disabled={!!equipo} maxLength={80} minLength={2} required placeholder="Ej: Deportivo FutMatch" />
         </label>
       </>}
-      {isOffer && <label>Nombre de tu cancha
-        <input value={nombreCancha} onChange={(event) => setNombreCancha(event.target.value)} maxLength={100} minLength={2} required placeholder="Ej: Canchas del Parque" />
-      </label>}
+      {isOffer && <>
+        <label>Nombre de tu cancha
+          <input value={nombreCancha} onChange={(event) => setNombreCancha(event.target.value)} maxLength={100} minLength={2} required placeholder="Ej: Canchas del Parque" />
+        </label>
+        <label>Dirección del recinto
+          <input value={direccionCancha} onChange={(event) => setDireccionCancha(event.target.value)}
+            minLength={5} maxLength={160} required placeholder="Ej: Avenida La Florida 1200" />
+        </label>
+        <div className="form-columns">
+          <label>Precio por hora (CLP)
+            <input type="number" value={precioHora} onChange={(event) => setPrecioHora(event.target.value)}
+              required min={0} max={1000000} step={1} placeholder="Ej: 28000" />
+          </label>
+          <label>Horarios habituales (informativos)
+            <input value={horariosCancha} onChange={(event) => setHorariosCancha(event.target.value)}
+              maxLength={200} placeholder="Ej: Lunes a domingo, 17:00–23:00" />
+          </label>
+        </div>
+        <p className="muted">Las reservas se solicitan para partidos confirmados. El dueño acepta o rechaza cada horario; publicar la cancha no garantiza disponibilidad.</p>
+      </>}
       <label>Título de la publicación
         <input value={titulo} onChange={(event) => setTitulo(event.target.value)} maxLength={110} minLength={5} required placeholder={opciones[categoria].example} />
       </label>
@@ -443,7 +477,8 @@ export function Publish({
           <input type="date" min={minDate} required={categoria === 'equipo_busca_rival'} value={fecha} onChange={(event) => setFecha(event.target.value)} />
         </label>
         <label>Hora {categoria === 'equipo_busca_rival' ? '' : '(opcional)'}
-          <input type="time" required={categoria === 'equipo_busca_rival'} value={hora} onChange={(event) => setHora(event.target.value)} />
+          <input type="time" step={categoria === 'equipo_busca_rival' ? 3600 : 60}
+            required={categoria === 'equipo_busca_rival'} value={hora} onChange={(event) => setHora(event.target.value)} />
         </label>
       </div>
       {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}

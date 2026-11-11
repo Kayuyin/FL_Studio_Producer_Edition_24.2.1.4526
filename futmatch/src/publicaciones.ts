@@ -66,7 +66,7 @@ export function escucharPublicaciones(
           autorUid: String(data.autorUid ?? ''),
           autorNombre: String(data.autorNombre ?? 'Jugador'),
           autorTipoCuenta: ['jugador', 'capitan', 'equipo', 'dueno_cancha'].includes(data.autorTipoCuenta)
-            ? data.autorTipoCuenta as TipoCuenta : '',
+            ? data.autorTipoCuenta as TipoCuenta : ('' as const),
           equipoNombre: String(data.equipoNombre ?? ''),
           nombreCancha: String(data.nombreCancha ?? ''),
           titulo: String(data.titulo ?? ''),

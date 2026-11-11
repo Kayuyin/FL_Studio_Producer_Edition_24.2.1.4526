@@ -11,6 +11,12 @@ import { escucharCanchas } from './canchas'
 import type { CanchaRegistrada } from './canchas'
 import { CatalogoEquipos, FichaEquipo } from './VistasEquipos'
 import { CatalogoCanchas } from './VistasCanchas'
+import { escucharPartidos } from './partidos'
+import type { Partido } from './partidos'
+import { escucharReservas, solicitarReserva } from './reservas'
+import type { ReservaCancha } from './reservas'
+import { MisPartidos } from './VistasPartidos'
+import { MisReservas } from './VistasReservas'
 import type { Publicacion, Categoria } from './publicaciones'
 import { Explore, Publish } from './VistasPublicaciones'
 import { PanelPorRol, MisPublicaciones } from './PanelPorRol'
@@ -22,13 +28,15 @@ import type { PerfilUsuario } from './Perfil'
 import { TIPOS_CUENTA, tipoCuentaValido } from './tiposCuenta'
 import './App.css'
 
-type View = 'inicio' | 'explorar' | 'equipos' | 'mi_equipo' | 'canchas' | 'publicar' | 'mis_publicaciones' | 'matches' | 'mensajes' | 'perfil' | 'ayuda'
+type View = 'inicio' | 'explorar' | 'equipos' | 'mi_equipo' | 'canchas' | 'partidos' | 'reservas' | 'publicar' | 'mis_publicaciones' | 'matches' | 'mensajes' | 'perfil' | 'ayuda'
 const navItems: { id: View; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Inicio', icon: '⌂' },
   { id: 'explorar', label: 'Explorar', icon: '⌕' },
   { id: 'equipos', label: 'Equipos', icon: '⚽' },
   { id: 'mi_equipo', label: 'Mi equipo', icon: '♟' },
   { id: 'canchas', label: 'Canchas', icon: '▣' },
+  { id: 'partidos', label: 'Mis partidos', icon: '⚔' },
+  { id: 'reservas', label: 'Reservas', icon: '▤' },
   { id: 'publicar', label: 'Publicar', icon: '+' },
   { id: 'mis_publicaciones', label: 'Mis publicaciones', icon: '▤' },
   { id: 'matches', label: 'Matches', icon: '♥' },
@@ -79,6 +87,13 @@ function Dashboard({
   const [canchas, setCanchas] = useState<CanchaRegistrada[]>([])
   const [canchasLoading, setCanchasLoading] = useState(true)
   const [canchasError, setCanchasError] = useState('')
+  const [partidos, setPartidos] = useState<Partido[]>([])
+  const [partidosLoading, setPartidosLoading] = useState(true)
+  const [partidosError, setPartidosError] = useState('')
+  const [reservas, setReservas] = useState<ReservaCancha[]>([])
+  const [reservasLoading, setReservasLoading] = useState(true)
+  const [reservasError, setReservasError] = useState('')
+  const [partidoSeleccionadoId, setPartidoSeleccionadoId] = useState('')
   const [postsLoading, setPostsLoading] = useState(true)
   const [postsError, setPostsError] = useState('')
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
@@ -120,7 +135,10 @@ function Dashboard({
     setView('equipos')
     setMenuOpen(false)
   }
-  const goToCanchas = () => goTo('canchas')
+  const goToCanchas = (partidoId?: string) => {
+    setPartidoSeleccionadoId(partidoId || '')
+    goTo('canchas')
+  }
 
   useEffect(() => onSnapshot(
     doc(db, 'usuarios', user.uid),
@@ -174,6 +192,30 @@ function Dashboard({
     },
   ), [])
 
+  useEffect(() => {
+    if (perfilLoading || (tipoCuenta !== 'capitan' && tipoCuenta !== 'equipo')) {
+      setPartidos([])
+      setPartidosLoading(false)
+      return
+    }
+    setPartidosLoading(true)
+    return escucharPartidos(user.uid,
+      items => { setPartidos(items); setPartidosLoading(false); setPartidosError('') },
+      error => { setPartidosLoading(false); setPartidosError(`No se pudieron cargar partidos (${error.code || 'error'}).`) })
+  }, [user.uid, tipoCuenta, perfilLoading])
+
+  useEffect(() => {
+    if (perfilLoading || (tipoCuenta !== 'capitan' && tipoCuenta !== 'equipo' && tipoCuenta !== 'dueno_cancha')) {
+      setReservas([])
+      setReservasLoading(false)
+      return
+    }
+    setReservasLoading(true)
+    return escucharReservas(user.uid,
+      items => { setReservas(items); setReservasLoading(false); setReservasError('') },
+      error => { setReservasLoading(false); setReservasError(`No se pudieron cargar reservas (${error.code || 'error'}). Comprueba las reglas de Firestore.`) })
+  }, [user.uid, tipoCuenta, perfilLoading])
+
   useEffect(() => observarSolicitudes(
     user.uid,
     (items) => { setSolicitudes(items); setRequestsLoading(false); setRequestsError('') },
@@ -209,6 +251,14 @@ function Dashboard({
     setLocalNotice('Tu publicación se eliminó correctamente.')
   }
 
+  async function onSolicitarReserva(cancha: CanchaRegistrada, partido: Partido, nota: string) {
+    if (tipoCuenta !== 'equipo' && tipoCuenta !== 'capitan') {
+      throw new Error('Solo Equipo o Capitán pueden solicitar reservas.')
+    }
+    await solicitarReserva(cancha, partido, user.uid, nota)
+    setLocalNotice('Solicitud de reserva enviada. El dueño debe confirmarla antes de considerar el turno reservado.')
+  }
+
   async function onCanchaContact(cancha: CanchaRegistrada) {
     if (tipoCuenta !== 'equipo' && tipoCuenta !== 'capitan') {
       throw new Error('Solo las cuentas Equipo o Capitán pueden consultar canchas.')
@@ -236,10 +286,15 @@ function Dashboard({
   const newRequests = solicitudes.filter((item) =>
     item.autorPublicacionUid === user.uid && item.estado === 'pendiente').length
   const displayedNav = tipoCuenta === 'dueno_cancha'
-    ? navItems.filter((item) => ['inicio', 'publicar', 'mis_publicaciones', 'mensajes', 'perfil'].includes(item.id))
+    ? navItems.filter((item) => ['inicio', 'publicar', 'mis_publicaciones', 'reservas', 'mensajes', 'perfil'].includes(item.id))
     : tipoCuenta === 'jugador'
-      ? navItems.filter((item) => !['mi_equipo', 'canchas'].includes(item.id))
+      ? navItems.filter((item) => !['mi_equipo', 'canchas', 'partidos', 'reservas'].includes(item.id))
       : navItems
+  const mobileNav = displayedNav.filter(item => (tipoCuenta === 'dueno_cancha'
+    ? ['inicio','publicar','reservas','mensajes','perfil'].includes(item.id)
+    : tipoCuenta === 'jugador'
+      ? ['inicio','explorar','matches','mensajes','perfil'].includes(item.id)
+      : ['inicio','mi_equipo','partidos','reservas','mensajes'].includes(item.id)))
   const currentView = tipoCuenta === 'dueno_cancha' && (view === 'explorar' || view === 'matches') ? 'inicio' : view
   function labelFor(item: (typeof navItems)[number]): string {
     if (tipoCuenta !== 'dueno_cancha') {
@@ -248,6 +303,7 @@ function Dashboard({
     if (item.id === 'publicar') return 'Anunciar cancha'
     if (item.id === 'mis_publicaciones') return 'Mis canchas'
     if (item.id === 'mensajes') return 'Conversaciones'
+    if (item.id === 'reservas') return 'Solicitudes de reserva'
     return item.label
   }
 
@@ -292,7 +348,8 @@ function Dashboard({
         uid={user.uid} publicaciones={publicaciones} solicitudes={solicitudes}
         loading={postsLoading} error={postsError} onNavigate={goTo} onExplore={explorarCategoria}
         onPublish={publicarCategoria} onInterest={onInterest} onDelete={onDelete}
-        onOpenEquipos={() => goTo('equipos')} onOpenCanchas={goToCanchas} />}
+        onOpenEquipos={() => goTo('equipos')} onOpenCanchas={() => goToCanchas()}
+        onOpenPartidos={() => goTo('partidos')} onOpenReservas={() => goTo('reservas')} />}
       {currentView === 'explorar' && <Explore publicaciones={publicaciones} filter={filter} setFilter={setFilter}
         loading={postsLoading} error={postsError}
         userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete}
@@ -309,7 +366,17 @@ function Dashboard({
         onFindPlayers={() => explorarCategoria('persona_busca_equipo')} />}
       {currentView === 'canchas' && (tipoCuenta === 'capitan' || tipoCuenta === 'equipo') &&
         <CatalogoCanchas canchas={canchas} loading={canchasLoading} error={canchasError}
-          solicitudes={solicitudes} userUid={user.uid} onContact={onCanchaContact} />}
+          solicitudes={solicitudes} userUid={user.uid} onContact={onCanchaContact}
+          partidos={partidos} reservas={reservas} partidoSeleccionadoId={partidoSeleccionadoId}
+          onSelectPartido={setPartidoSeleccionadoId} onSolicitarReserva={onSolicitarReserva} />}
+      {currentView === 'partidos' && (tipoCuenta === 'equipo' || tipoCuenta === 'capitan') &&
+        <MisPartidos uid={user.uid} partidos={partidos} reservas={reservas} loading={partidosLoading}
+          error={partidosError} onGoMatches={() => goTo('matches')} onFindCanchas={goToCanchas}
+          onNotice={setLocalNotice} />}
+      {currentView === 'reservas' && (tipoCuenta !== 'jugador') &&
+        <MisReservas uid={user.uid} tipoCuenta={tipoCuenta} reservas={reservas}
+          loading={reservasLoading} error={reservasError} onNotice={setLocalNotice}
+          onFindCanchas={() => goToCanchas()} />}
       {currentView === 'publicar' && <Publish
         key={`${tipoCuenta}:${categoriaInicial}`}
         user={user} nombreAutor={displayName} tipoCuenta={tipoCuenta}
@@ -323,7 +390,8 @@ function Dashboard({
         tipoCuenta={tipoCuenta} />}
       {currentView === 'matches' && <Matches user={user} solicitudes={solicitudes} loading={requestsLoading}
         error={requestsError} onOpenChat={openChat} publicaciones={publicaciones} miEquipo={miEquipo}
-        equipos={equipos} onOpenTeam={openEquipo} onFindCanchas={goToCanchas} />}
+        equipos={equipos} onOpenTeam={openEquipo} onFindCanchas={goToCanchas}
+        partidos={partidos} onOpenPartidos={() => goTo('partidos')} onNotice={setLocalNotice} />}
       {currentView === 'mensajes' && (tipoCuenta === 'dueno_cancha'
         ? <ConversacionesCanchas user={user} solicitudes={solicitudes} loading={requestsLoading}
             error={requestsError} initialSelectedId={selectedChatId} />
@@ -332,7 +400,7 @@ function Dashboard({
         error={perfilError} onNotice={(message) => setLocalNotice(message)} />}
       {currentView === 'ayuda' && <SimplePage icon="?" title="Centro de ayuda"
         text={tipoCuenta === 'dueno_cancha'
-          ? 'Publica un anuncio desde Anunciar cancha. Cuando una persona se interese, podrás aceptar su solicitud en Conversaciones y hablar con ella. No hay reservas ni pagos automáticos.'
+          ? 'Anuncia tu cancha con dirección y tarifa por hora. En Solicitudes de reserva puedes aceptar o rechazar horarios de partidos; en Conversaciones puedes hablar con los interesados. Los pagos no se procesan en FutMatch.'
           : tipoCuenta === 'jugador'
           ? 'En Explorar verás las vacantes publicadas por capitanes. Pulsa «Postular al equipo». El capitán recibirá tu postulación en Matches y, si la acepta, podrán conversar por Mensajes. También puedes publicar «Busco equipo».'
           : 'En Explorar puedes contactar a otros usuarios mediante «Me interesa». El autor recibe la solicitud en Matches. Una vez aceptada, se habilita el chat de Mensajes.'}
@@ -340,7 +408,7 @@ function Dashboard({
         onClick={() => goTo(tipoCuenta === 'dueno_cancha' ? 'publicar' : 'explorar')} />}
     </main>
     <nav className="bottom-nav">
-      {displayedNav.filter((item) => item.id !== 'mis_publicaciones').slice(0, 5).map((item) => <button className={currentView === item.id ? 'active' : ''}
+      {mobileNav.map((item) => <button className={currentView === item.id ? 'active' : ''}
         type="button" key={item.id} onClick={() => goTo(item.id)}><span>{item.icon}</span>{labelFor(item)}</button>)}
     </nav>
   </div>

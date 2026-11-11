@@ -60,6 +60,8 @@ No necesitas introducir documentos manuales en Firebase. Se guardan desde FutMat
 - Se admite **una ficha de equipo por cuenta administradora**. No existe transferencia de propiedad o administración compartida entre cuentas.
 - El capitán es una persona identificada en la ficha del equipo. Designarlo no cambia su tipo de cuenta ni le transfiere automáticamente los permisos de administrador.
 - La incorporación de jugadores es explícita en tres fases: solicitud aceptada, confirmación del jugador y acción de incorporación del responsable.
+- Un jugador puede usar **Salir del equipo** desde su ficha. Esa acción elimina su registro de la plantilla y retira el consentimiento mediante un batch. El responsable no puede readmitirlo hasta que el propio jugador confirme de nuevo. El capitán actual debe dejar el cargo antes de salir.
+- Editar el nombre del equipo no reescribe las publicaciones antiguas; los anuncios nuevos utilizarán el nombre vigente.
 - El catálogo de `canchas` se alimenta con **nuevos anuncios**, no importa automáticamente los anuncios históricos.
 - No hay reserva de cancha, pagos, confirmación de horario real ni gestión del resultado del partido.
 - Los listados están limitados a 100 registros recientes; hay que añadir paginación si crece la comunidad.

@@ -133,7 +133,7 @@ export function PanelPorRol({
 }
 
 export function MisPublicaciones({
-  uid, publicaciones, solicitudes, loading, error, onPublish, onInterest, onDelete,
+  uid, publicaciones, solicitudes, loading, error, onPublish, onInterest, onDelete, tipoCuenta,
 }: {
   uid: string
   publicaciones: Publicacion[]
@@ -143,18 +143,28 @@ export function MisPublicaciones({
   onPublish: () => void
   onInterest: (post: Publicacion) => Promise<void>
   onDelete: (post: Publicacion) => Promise<void>
+  tipoCuenta: TipoCuenta
 }) {
-  const propias = publicaciones.filter((post) => post.autorUid === uid)
+  const dueno = tipoCuenta === 'dueno_cancha'
+  const propias = publicaciones.filter((post) => post.autorUid === uid
+    && (!dueno || post.categoria === 'ofrece_cancha'))
   return <div className="page">
     <section className="page-heading">
-      <div><p className="eyebrow">MI ACTIVIDAD</p><h1>Mis publicaciones</h1><p className="muted">Aquí puedes revisar y eliminar los anuncios que creaste.</p></div>
-      <button className="primary-button" type="button" onClick={onPublish}>＋ Nueva publicación</button>
+      <div><p className="eyebrow">MI ACTIVIDAD</p>
+        <h1>{dueno ? 'Mis canchas' : 'Mis publicaciones'}</h1>
+        <p className="muted">{dueno
+          ? 'Revisa y elimina los anuncios de cancha que has publicado.'
+          : 'Aquí puedes revisar y eliminar los anuncios que creaste.'}</p></div>
+      <button className="primary-button" type="button" onClick={onPublish}>
+        {dueno ? '＋ Anunciar cancha' : '＋ Nueva publicación'}</button>
     </section>
     {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}
     {loading && <p className="posts-feedback" role="status">Cargando publicaciones…</p>}
     {!loading && !error && (propias.length
       ? <div className="post-grid role-own-posts">{propias.map((post) =>
           <PublicacionCard key={post.id} post={post} userUid={uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />)}</div>
-      : <p className="posts-feedback">Todavía no has creado publicaciones. Selecciona «Nueva publicación» para comenzar.</p>)}
+      : <p className="posts-feedback">{dueno
+          ? 'Todavía no has anunciado una cancha. Presiona «Anunciar cancha» para comenzar.'
+          : 'Todavía no has creado publicaciones. Selecciona «Nueva publicación» para comenzar.'}</p>)}
   </div>
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import type { CanchaRegistrada } from './canchas'
+import { editarCancha } from './canchas'
 import type { Solicitud } from './solicitudes'
 import type { Partido } from './partidos'
 import type { ReservaCancha } from './reservas'
@@ -123,4 +124,62 @@ export function CatalogoCanchas({
       </div>
       : <p className="posts-feedback">Todavía no hay canchas registradas con esos filtros. Los dueños pueden anunciarlas desde su cuenta.</p>)}
   </div>
+}
+
+/** Edición de los datos comerciales del recinto por la cuenta propietaria. */
+export function EditarMisCanchas({
+  canchas, uid, onNotice,
+}: {
+  canchas: CanchaRegistrada[]
+  uid: string
+  onNotice: (text: string) => void
+}) {
+  const propias = canchas.filter(cancha => cancha.duenoUid === uid)
+  return <div className="page">
+    <section className="sports-panel">
+      <h2>Actualizar datos de mis canchas</h2>
+      <p className="muted">Mantén la dirección, el precio y el horario habitual actualizados. Las reservas ya solicitadas mantienen el precio indicado al solicitarlas.</p>
+      {!propias.length && <p className="posts-feedback">No hay canchas registradas en la colección nueva. Si tienes anuncios antiguos, vuelve a publicarlos para crear su ficha.</p>}
+      {propias.map(cancha => <FormularioCancha key={cancha.id} cancha={cancha} onNotice={onNotice} />)}
+    </section>
+  </div>
+}
+
+function FormularioCancha({ cancha, onNotice }: { cancha: CanchaRegistrada; onNotice: (text: string) => void }) {
+  const [direccion, setDireccion] = useState(cancha.direccion)
+  const [precio, setPrecio] = useState(String(cancha.precioHora))
+  const [horarios, setHorarios] = useState(cancha.informacionHorarios)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  async function guardar(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault()
+    setBusy(true)
+    setError('')
+    try {
+      await editarCancha(cancha.id, direccion, Number(precio), horarios)
+      onNotice(`Datos de ${cancha.nombre} actualizados.`)
+    } catch (cause) {
+      setError((cause as Error).message || 'No se pudieron guardar los datos de la cancha.')
+    } finally { setBusy(false) }
+  }
+  return <form className="court-edit-form" onSubmit={event => { void guardar(event) }}>
+    <h3>▣ {cancha.nombre}</h3>
+    <div className="form-columns">
+      <label>Dirección
+        <input required minLength={5} maxLength={160} value={direccion}
+          onChange={event => setDireccion(event.target.value)} />
+      </label>
+      <label>Precio por hora (CLP)
+        <input required type="number" min={0} max={1000000} step={1}
+          value={precio} onChange={event => setPrecio(event.target.value)} />
+      </label>
+      <label>Horarios habituales
+        <input maxLength={200} value={horarios} onChange={event => setHorarios(event.target.value)} />
+      </label>
+    </div>
+    {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}
+    <button type="submit" className="primary-button" disabled={busy}>
+      {busy ? 'Guardando…' : 'Guardar datos de cancha'}
+    </button>
+  </form>
 }

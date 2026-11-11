@@ -211,7 +211,7 @@ function Dashboard({
       return
     }
     setReservasLoading(true)
-    return escucharReservas(user.uid,
+    return escucharReservas(user.uid, tipoCuenta,
       items => { setReservas(items); setReservasLoading(false); setReservasError('') },
       error => { setReservasLoading(false); setReservasError(`No se pudieron cargar reservas (${(error as Error & { code?: string }).code || 'error'}). Comprueba las reglas de Firestore.`) })
   }, [user.uid, tipoCuenta, perfilLoading])

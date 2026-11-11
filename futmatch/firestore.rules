@@ -649,7 +649,11 @@ service cloud.firestore {
           && get(/databases/$(database)/documents/equipos/$(data.equipoVisitanteId)).data.nombre == data.visitanteNombre;
       }
 
-      allow get, list: if participa(resource.data);
+      // Las consultas where(equipoLocalId / equipoVisitanteId, '==', uid)
+      // deben poder demostrar el permiso sin interpretar un "uid in [...]".
+      allow get, list: if loggedIn()
+        && (request.auth.uid == resource.data.equipoLocalId
+          || request.auth.uid == resource.data.equipoVisitanteId);
       allow create: if participa(request.resource.data)
         && validPartido(request.resource.data)
         && request.resource.data.creadoPorUid == request.auth.uid
@@ -757,7 +761,14 @@ service cloud.firestore {
         return !existsAfter(/databases/$(database)/documents/canchas/$(data.canchaId)/turnos/$(turnoId));
       }
 
-      allow get, list: if interesado(resource.data);
+      // Consultas por campo acotado: el dueño ve reservas propias y cada equipo
+      // las de sus partidos. Condiciones explícitas para Firestore Query Rules.
+      allow get, list: if loggedIn()
+        && (
+          request.auth.uid == resource.data.duenoUid
+          || request.auth.uid == resource.data.equipoLocalId
+          || request.auth.uid == resource.data.equipoVisitanteId
+        );
       allow create: if loggedIn()
         && valida(request.resource.data)
         && request.resource.data.solicitanteUid == request.auth.uid

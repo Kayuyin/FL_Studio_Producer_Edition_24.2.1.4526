@@ -45,8 +45,19 @@ function leerReserva(id: string, data: Record<string, unknown>): ReservaCancha {
   }
 }
 
-export function escucharReservas(uid: string, onData: (items: ReservaCancha[]) => void, onError: (error: Error) => void): Unsubscribe {
-  const propiedades = ['duenoUid', 'solicitanteUid', 'equipoLocalId', 'equipoVisitanteId'] as const
+export function escucharReservas(
+  uid: string,
+  tipoCuenta: 'equipo' | 'capitan' | 'dueno_cancha',
+  onData: (items: ReservaCancha[]) => void,
+  onError: (error: Error) => void,
+): Unsubscribe {
+  // El dueño consulta solo sus recintos; los equipos, solo partidos donde participan.
+  // Una consulta Firestore debe estar acotada a los documentos que autorizan las reglas.
+  // "solicitanteUid" es redundante: siempre coincide con uno de los dos equipos.
+  const propiedades: Array<'duenoUid' | 'equipoLocalId' | 'equipoVisitanteId'> =
+    tipoCuenta === 'dueno_cancha'
+      ? ['duenoUid']
+      : ['equipoLocalId', 'equipoVisitanteId']
   const grupos: ReservaCancha[][] = propiedades.map(() => [])
   const cargados = propiedades.map(() => false)
   const coleccion = collection(db, 'reservas')
@@ -63,7 +74,10 @@ export function escucharReservas(uid: string, onData: (items: ReservaCancha[]) =
       cargados[indice] = true
       emitir()
     },
-    onError,
+    error => {
+      console.error(`[FutMatch] No se pudieron consultar reservas por ${campo}:`, error)
+      onError(error)
+    },
   ))
   return () => deteners.forEach(detener => detener())
 }

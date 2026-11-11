@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
-import type { FormEvent } from 'react'
+import type { FormEvent, ReactNode } from 'react'
 import type { User } from 'firebase/auth'
 import type { Mensaje, Solicitud } from './solicitudes'
 import { enviarMensaje, observarMensajes, responderSolicitud } from './solicitudes'
+import type { Publicacion } from './publicaciones'
+import type { EquipoRegistrado } from './equipos'
+import { incorporarJugador } from './equipos'
 
 function otherName(solicitud: Solicitud, uid: string): string {
   return solicitud.interesadoUid === uid ? solicitud.nombreAutor : solicitud.nombreInteresado
@@ -12,12 +15,13 @@ function statusName(status: Solicitud['estado']): string {
 }
 
 function SolicitudItem({
-  solicitud, user, onOpenChat, onChange,
+  solicitud, user, onOpenChat, onChange, children,
 }: {
   solicitud: Solicitud
   user: User
   onOpenChat: (id: string) => void
   onChange: (id: string, estado: 'aceptada' | 'rechazada') => Promise<void>
+  children?: ReactNode
 }) {
   const incoming = solicitud.autorPublicacionUid === user.uid
   const [busy, setBusy] = useState(false)
@@ -46,39 +50,94 @@ function SolicitudItem({
         <button type="button" className="secondary-button" disabled={busy} onClick={() => { void respond('rechazada') }}>Rechazar</button>
       </>}
       {solicitud.estado === 'aceptada' && <button type="button" className="secondary-button" onClick={() => onOpenChat(solicitud.id)}>Abrir conversación →</button>}
+      {children}
     </div>
     {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}
   </article>
 }
 
 export function Matches({
-  user, solicitudes, loading, error, onOpenChat,
+  user, solicitudes, loading, error, onOpenChat, publicaciones, miEquipo,
+  equipos, onOpenTeam, onFindCanchas,
 }: {
   user: User
   solicitudes: Solicitud[]
   loading: boolean
   error: string
   onOpenChat: (solicitudId: string) => void
+  publicaciones: Publicacion[]
+  miEquipo: EquipoRegistrado | null
+  equipos: EquipoRegistrado[]
+  onOpenTeam: (id: string) => void
+  onFindCanchas: () => void
 }) {
+  const [adding, setAdding] = useState('')
+  const [actionError, setActionError] = useState('')
+  const [actionSuccess, setActionSuccess] = useState('')
   const recibidas = solicitudes.filter((item) => item.autorPublicacionUid === user.uid)
   const enviadas = solicitudes.filter((item) => item.interesadoUid === user.uid)
   async function changeRequest(id: string, estado: 'aceptada' | 'rechazada') {
     await responderSolicitud(id, estado)
   }
+  async function addToRoster(item: Solicitud) {
+    if (!miEquipo) return
+    setAdding(item.id)
+    setActionError('')
+    setActionSuccess('')
+    try {
+      await incorporarJugador(miEquipo.id, item)
+      setActionSuccess('Jugador incorporado a la plantilla de tu equipo. Puedes verlo en Mi equipo.')
+    } catch (cause) {
+      const code = (cause as { code?: string }).code
+      setActionError(code === 'permission-denied'
+        ? 'No se pudo incorporar al jugador. Comprueba que la solicitud aceptada corresponde a tu equipo y las nuevas reglas estén publicadas.'
+        : 'No se pudo incorporar: el jugador puede estar ya registrado en la plantilla.')
+    } finally { setAdding('') }
+  }
+  function actions(item: Solicitud) {
+    if (item.estado !== 'aceptada') return null
+    const post = publicaciones.find((entry) => entry.id === item.publicacionId)
+    const canIncorporate = !!miEquipo && !!post && (
+      (item.tipoSolicitud === 'postulacion' && item.autorPublicacionUid === user.uid
+        && post.categoria === 'equipo_busca_jugadores' && post.equipoId === miEquipo.id)
+      || (item.tipoSolicitud === 'contacto' && item.interesadoUid === user.uid
+        && post.categoria === 'persona_busca_equipo')
+    )
+    const rivalMatch = post?.categoria === 'equipo_busca_rival'
+      && item.tipoSolicitud === 'contacto' && miEquipo != null
+    const otherUid = item.interesadoUid === user.uid ? item.autorPublicacionUid : item.interesadoUid
+    const rival = equipos.find((team) => team.ownerUid === otherUid)
+    return <>
+      {canIncorporate && <button type="button" className="secondary-button"
+        disabled={!!adding} onClick={() => { void addToRoster(item) }}>
+        {adding === item.id ? 'Incorporando…' : 'Añadir jugador a mi plantilla'}
+      </button>}
+      {rivalMatch && rival && <>
+        <button type="button" className="secondary-button" onClick={() => onOpenTeam(rival.id)}>
+          Ver equipo rival y plantilla
+        </button>
+        <button type="button" className="primary-button" onClick={onFindCanchas}>
+          ▣ Buscar cancha para este match
+        </button>
+      </>}
+    </>
+  }
   return <div className="page">
     <div className="page-heading"><div><p className="eyebrow">CONECTA CON LA COMUNIDAD</p><h1>Mis matches</h1><p className="muted">Revisa solicitudes, postulaciones a equipos y contactos enviados o recibidos.</p></div></div>
     {error && <p role="alert" className="posts-feedback posts-error">{error}</p>}
     {loading && !error && <p className="posts-feedback" role="status">Cargando tus solicitudes…</p>}
+    {actionError && <p className="posts-feedback posts-error" role="alert">{actionError}</p>}
+    {actionSuccess && <p className="posts-feedback" role="status">{actionSuccess}</p>}
     <section className="requests-section">
       <h2>Solicitudes recibidas <span className="request-count">{recibidas.length}</span></h2>
       {recibidas.length
-        ? <div className="requests-grid">{recibidas.map((item) => <SolicitudItem key={item.id} solicitud={item} user={user} onOpenChat={onOpenChat} onChange={changeRequest} />)}</div>
+        ? <div className="requests-grid">{recibidas.map((item) => <SolicitudItem key={item.id} solicitud={item} user={user} onOpenChat={onOpenChat} onChange={changeRequest}>{actions(item)}</SolicitudItem>)}</div>
         : <p className="posts-feedback">Cuando alguien presione «Me interesa» en una de tus publicaciones, aparecerá aquí.</p>}
     </section>
     <section className="requests-section">
       <h2>Solicitudes enviadas <span className="request-count">{enviadas.length}</span></h2>
       {enviadas.length
-        ? <div className="requests-grid">{enviadas.map((item) => <SolicitudItem key={item.id} solicitud={item} user={user} onOpenChat={onOpenChat} onChange={changeRequest} />)}</div>
+        ? <div className="requests-grid">{enviadas.map((item) => <SolicitudItem key={item.id} solicitud={item} user={user} onOpenChat={onOpenChat} onChange={changeRequest}>{actions(item)}</SolicitudItem>)}</div>
         : <p className="posts-feedback">Visita Explorar: los jugadores pueden «Postular al equipo» en vacantes de capitanes y otras cuentas pueden utilizar «Me interesa».</p>}
     </section>
   </div>

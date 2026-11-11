@@ -545,6 +545,24 @@ service cloud.firestore {
             && request.auth.uid == resource.data.autorPublicacionUid)
         );
 
+      // Cuando el responsable quita a un integrante, también debe retirar
+      // su consentimiento en la misma operación atómica.
+      allow update: if isSignedIn()
+        && resource.data.estado == 'aceptada'
+        && resource.data.get('incorporacionConfirmada', false) == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['incorporacionConfirmada'])
+        && request.resource.data.incorporacionConfirmada == false
+        && (
+          (resource.data.tipoSolicitud == 'postulacion'
+            && request.auth.uid == resource.data.autorPublicacionUid
+            && exists(/databases/$(database)/documents/equipos/$(resource.data.autorPublicacionUid))
+            && !existsAfter(/databases/$(database)/documents/equipos/$(resource.data.autorPublicacionUid)/integrantes/$(resource.data.interesadoUid)))
+          || (resource.data.tipoSolicitud == 'contacto'
+            && request.auth.uid == resource.data.interesadoUid
+            && exists(/databases/$(database)/documents/equipos/$(resource.data.interesadoUid))
+            && !existsAfter(/databases/$(database)/documents/equipos/$(resource.data.interesadoUid)/integrantes/$(resource.data.autorPublicacionUid)))
+        );
+
       allow delete: if false;
 
       match /mensajes/{mensajeId} {

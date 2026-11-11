@@ -250,7 +250,8 @@ service cloud.firestore {
       }
       function validEquipo(data) {
         return data.keys().hasOnly([
-            'ownerUid','nombre','descripcion','comuna','capitanUid','capitanNombre','escudo','modalidad','nivel','creadoEn'
+            'ownerUid','nombre','descripcion','region','regionCodigo','comuna','comunaCodigo',
+            'capitanUid','capitanNombre','escudo','modalidad','nivel','creadoEn'
           ])
           && data.keys().hasAll([
             'ownerUid','nombre','descripcion','comuna','capitanUid','capitanNombre','creadoEn'
@@ -259,6 +260,17 @@ service cloud.firestore {
           && data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 80
           && data.descripcion is string && data.descripcion.size() <= 350
           && data.comuna is string && data.comuna.size() >= 2 && data.comuna.size() <= 80
+          // Compatibilidad con equipos registrados antes de incluir región y comuna editables.
+          && (
+            !data.keys().hasAny(['region','regionCodigo','comunaCodigo'])
+            || (
+              data.keys().hasAll(['region','regionCodigo','comunaCodigo'])
+              && data.region is string && data.region.size() >= 3 && data.region.size() <= 80
+              && data.regionCodigo is string && data.regionCodigo.matches('^[0-9]{2}$')
+              && data.comunaCodigo is string
+              && data.comunaCodigo.matches('^' + data.regionCodigo + '[0-9]{3}$')
+            )
+          )
           && data.capitanUid is string
           && data.capitanNombre is string && data.capitanNombre.size() >= 2 && data.capitanNombre.size() <= 70
           && data.get('escudo', '⚽') in ['⚽','🛡️','🏆','⭐','🔥']
@@ -278,16 +290,16 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/usuarios/$(equipoId))
         && get(/databases/$(database)/documents/usuarios/$(equipoId)).data.tipoCuenta in ['equipo','capitan']
         && validEquipo(request.resource.data)
+        && request.resource.data.keys().hasAll(['region','regionCodigo','comunaCodigo'])
         && request.resource.data.nombre ==
           get(/databases/$(database)/documents/usuarios/$(equipoId)).data.nombreEquipo
-        && request.resource.data.comuna ==
-          get(/databases/$(database)/documents/usuarios/$(equipoId)).data.comuna
         && request.resource.data.capitanUid == equipoId
         && capitanPermitido(request.resource.data)
         && request.resource.data.creadoEn == request.time;
       allow update: if isManager()
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['nombre','descripcion','comuna','capitanUid','capitanNombre','escudo','modalidad','nivel'])
+          .hasOnly(['nombre','descripcion','region','regionCodigo','comuna','comunaCodigo',
+            'capitanUid','capitanNombre','escudo','modalidad','nivel'])
         && validEquipo(request.resource.data)
         && (
           (request.resource.data.capitanUid == resource.data.capitanUid

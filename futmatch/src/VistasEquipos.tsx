@@ -117,7 +117,7 @@ export function FichaEquipo({
   }
 
   async function remove(uid: string) {
-    if (!equipo || !isManager) return
+    if (!equipo || (!isManager && uid !== user.uid)) return
     setSaving(true)
     setError('')
     try {
@@ -168,9 +168,11 @@ export function FichaEquipo({
       {mostrados.map((member) => <div className="team-member" key={member.uid}>
         <div className="team-member-avatar">{member.nombre.charAt(0).toUpperCase()}</div>
         <div><strong>{member.nombre}</strong><small>Jugador confirmado</small></div>
-        {isManager && <div className="team-member-actions">
-          <button type="button" className="secondary-button" disabled={saving} onClick={() => { void captain(member) }}>Nombrar capitán</button>
-          <button type="button" className="delete-post-button" disabled={saving} onClick={() => { void remove(member.uid) }}>Quitar</button>
+        {(isManager || member.uid === user.uid) && <div className="team-member-actions">
+          {isManager && <button type="button" className="secondary-button" disabled={saving} onClick={() => { void captain(member) }}>Nombrar capitán</button>}
+          <button type="button" className="delete-post-button" disabled={saving} onClick={() => { void remove(member.uid) }}>
+            {isManager ? 'Quitar' : 'Salir del equipo'}
+          </button>
         </div>}
       </div>)}
       {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}

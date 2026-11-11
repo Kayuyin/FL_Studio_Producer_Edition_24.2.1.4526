@@ -10,8 +10,9 @@ import {
   query,
   serverTimestamp,
   writeBatch,
+  where,
 } from 'firebase/firestore'
-import type { Timestamp, Unsubscribe } from 'firebase/firestore'
+import type { DocumentData, QuerySnapshot, Timestamp, Unsubscribe } from 'firebase/firestore'
 import { db } from './firebase'
 import type { TipoCuenta } from './tiposCuenta'
 
@@ -53,15 +54,8 @@ export type NuevaPublicacion = Omit<Publicacion, 'id' | 'estado' | 'creadoEn'>
 const publicacionesRef = collection(db, 'publicaciones')
 const categoriasValidas = Object.keys(categorias)
 
-export function escucharPublicaciones(
-  onData: (publicaciones: Publicacion[]) => void,
-  onError: (error: Error) => void,
-): Unsubscribe {
-  const consulta = query(publicacionesRef, orderBy('creadoEn', 'desc'), limit(100))
-  return onSnapshot(
-    consulta,
-    (snapshot) => {
-      const publicaciones = snapshot.docs.flatMap((documento) => {
+function parsePublicaciones(snapshot: QuerySnapshot<DocumentData>): Publicacion[] {
+  return snapshot.docs.flatMap((documento) => {
         const data = documento.data()
         if (!categoriasValidas.includes(data.categoria) || data.estado !== 'activa') return []
         return [{
@@ -85,13 +79,60 @@ export function escucharPublicaciones(
           estado: 'activa' as const,
           creadoEn: (data.creadoEn ?? null) as Timestamp | null,
         }]
-      })
-      onData(publicaciones)
-    },
-    (error) => onError(error),
-  )
+  })
 }
 
+/** Una cuenta Equipo no recibe vacantes ajenas, tampoco mediante sus consultas directas.
+ * Recupera sus publicaciones propias por separado para conservar Mis publicaciones.
+ */
+export function escucharPublicaciones(
+  onData: (publicaciones: Publicacion[]) => void,
+  onError: (error: Error) => void,
+  cuenta?: { uid: string; tipoCuenta: TipoCuenta },
+): Unsubscribe {
+  if (cuenta?.tipoCuenta !== 'equipo') {
+    return onSnapshot(
+      query(publicacionesRef, orderBy('creadoEn', 'desc'), limit(100)),
+      (snapshot) => onData(parsePublicaciones(snapshot)),
+      onError,
+    )
+  }
+
+  const visibles: Categoria[] = ['persona_busca_equipo', 'equipo_busca_rival', 'busca_cancha', 'ofrece_cancha']
+  let publicas: Publicacion[] = []
+  let propias: Publicacion[] = []
+  let publicasCargadas = false
+  let propiasCargadas = false
+  const emitir = () => {
+    if (!publicasCargadas || !propiasCargadas) return
+    const unicas = new Map<string, Publicacion>()
+    for (const post of [...publicas, ...propias]) unicas.set(post.id, post)
+    onData([...unicas.values()]
+      .sort((a, b) => (b.creadoEn?.toMillis() ?? 0) - (a.creadoEn?.toMillis() ?? 0))
+      .slice(0, 100))
+  }
+
+  // No requiere índice compuesto y respeta las reglas que niegan leer vacantes ajenas.
+  const stopPublicas = onSnapshot(
+    query(publicacionesRef, where('categoria', 'in', visibles), limit(300)),
+    (snapshot) => {
+      publicas = parsePublicaciones(snapshot)
+      publicasCargadas = true
+      emitir()
+    },
+    onError,
+  )
+  const stopPropias = onSnapshot(
+    query(publicacionesRef, where('autorUid', '==', cuenta.uid), limit(100)),
+    (snapshot) => {
+      propias = parsePublicaciones(snapshot)
+      propiasCargadas = true
+      emitir()
+    },
+    onError,
+  )
+  return () => { stopPublicas(); stopPropias() }
+}
 export async function crearPublicacion(datos: NuevaPublicacion): Promise<void> {
   await addDoc(publicacionesRef, {
     ...datos,

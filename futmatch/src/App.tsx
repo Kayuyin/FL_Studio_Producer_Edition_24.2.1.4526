@@ -135,13 +135,21 @@ function Dashboard({
     },
   ), [user.uid])
 
-  useEffect(() => escucharPublicaciones(
-    (items) => { setPublicaciones(items); setPostsLoading(false); setPostsError('') },
-    () => {
-      setPostsLoading(false)
-      setPostsError('No se pudieron cargar las publicaciones. Revisa tu conexión y las reglas de Firestore.')
-    },
-  ), [])
+  useEffect(() => {
+    // Esperar al perfil para consultar Firestore con los permisos del rol real.
+    if (perfilLoading) return
+    setPostsLoading(true)
+    setPostsError('')
+    setPublicaciones([])
+    return escucharPublicaciones(
+      (items) => { setPublicaciones(items); setPostsLoading(false); setPostsError('') },
+      () => {
+        setPostsLoading(false)
+        setPostsError('No se pudieron cargar las publicaciones. Revisa tu conexión y las reglas de Firestore.')
+      },
+      { uid: user.uid, tipoCuenta },
+    )
+  }, [user.uid, tipoCuenta, perfilLoading])
 
   useEffect(() => escucharEquipos(
     (items) => { setEquipos(items); setEquiposLoading(false); setEquiposError('') },
@@ -169,6 +177,10 @@ function Dashboard({
   ), [user.uid])
 
   async function onInterest(post: Publicacion) {
+    if (tipoCuenta === 'equipo' && post.categoria === 'equipo_busca_jugadores'
+      && post.autorUid !== user.uid) {
+      throw new Error('Las cuentas Equipo no pueden consultar ni responder vacantes de otros equipos.')
+    }
     if (tipoCuenta === 'dueno_cancha') {
       throw new Error('Las cuentas de dueño de cancha solo reciben solicitudes sobre sus anuncios.')
     }

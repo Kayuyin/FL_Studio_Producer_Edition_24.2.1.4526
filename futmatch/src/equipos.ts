@@ -16,6 +16,9 @@ export type EquipoRegistrado = {
   comuna: string
   capitanUid: string
   capitanNombre: string
+  escudo: string
+  modalidad: string
+  nivel: string
   creadoEn: Timestamp | null
 }
 
@@ -23,6 +26,7 @@ export type IntegranteEquipo = {
   uid: string
   nombre: string
   solicitudId: string
+  posicion: string
   creadoEn: Timestamp | null
 }
 
@@ -41,6 +45,9 @@ export function escucharEquipos(
         comuna: String(data.comuna ?? ''),
         capitanUid: String(data.capitanUid ?? ''),
         capitanNombre: String(data.capitanNombre ?? ''),
+        escudo: String(data.escudo ?? '⚽'),
+        modalidad: String(data.modalidad ?? 'Fútbol 7'),
+        nivel: String(data.nivel ?? 'Amateur'),
         creadoEn: (data.creadoEn ?? null) as Timestamp | null,
       }
     })), onError)
@@ -58,13 +65,17 @@ export function escucharPlantilla(
         uid: item.id,
         nombre: String(data.nombre ?? ''),
         solicitudId: String(data.solicitudId ?? ''),
+        posicion: String(data.posicion ?? 'Sin definir'),
         creadoEn: (data.creadoEn ?? null) as Timestamp | null,
       }
     })), onError)
 }
 
+export const ESCUDOS_EQUIPO = ['⚽', '🛡️', '🏆', '⭐', '🔥'] as const
+export const POSICIONES_EQUIPO = ['Sin definir', 'Arquero', 'Defensa', 'Mediocampista', 'Delantero', 'Polifuncional'] as const
+
 /** Un equipo por cuenta administradora. El responsable figura como capitán inicial. */
-export async function crearEquipo(user: User, perfil: PerfilUsuario): Promise<void> {
+export async function crearEquipo(user: User, perfil: PerfilUsuario, escudo: string, modalidad: string, nivel: string): Promise<void> {
   const tipo = perfil.tipoCuenta
   if (tipo !== 'equipo' && tipo !== 'capitan') throw new Error('Debes tener una cuenta de Equipo o Capitán.')
   const nombre = (perfil.nombreEquipo ?? '').trim()
@@ -76,14 +87,18 @@ export async function crearEquipo(user: User, perfil: PerfilUsuario): Promise<vo
     comuna: perfil.comuna,
     capitanUid: user.uid,
     capitanNombre: perfil.nombre.trim(),
+    escudo,
+    modalidad,
+    nivel,
     creadoEn: serverTimestamp(),
   })
 }
 
-export async function editarEquipo(equipoId: string, nombre: string, descripcion: string, comuna: string): Promise<void> {
+export async function editarEquipo(equipoId: string, nombre: string, descripcion: string, comuna: string,
+  escudo: string, modalidad: string, nivel: string): Promise<void> {
   const n = nombre.trim()
   if (n.length < 2 || n.length > 80 || descripcion.length > 350) throw new Error('Revisa el nombre y la descripción.')
-  await updateDoc(doc(db, 'equipos', equipoId), { nombre: n, descripcion: descripcion.trim(), comuna })
+  await updateDoc(doc(db, 'equipos', equipoId), { nombre: n, descripcion: descripcion.trim(), comuna, escudo, modalidad, nivel })
 }
 
 export async function incorporarJugador(equipoId: string, solicitud: Solicitud): Promise<void> {
@@ -97,6 +112,7 @@ export async function incorporarJugador(equipoId: string, solicitud: Solicitud):
     uid,
     nombre,
     solicitudId: solicitud.id,
+    posicion: 'Sin definir',
     creadoEn: serverTimestamp(),
   })
 }
@@ -122,4 +138,11 @@ export async function quitarIntegrante(
   batch.update(doc(db, 'solicitudes', solicitudId), { incorporacionConfirmada: false })
   batch.delete(memberRef)
   await batch.commit()
+}
+
+export async function actualizarPosicion(equipoId: string, memberUid: string, posicion: string): Promise<void> {
+  if (!POSICIONES_EQUIPO.includes(posicion as typeof POSICIONES_EQUIPO[number])) {
+    throw new Error('La posición seleccionada no es válida.')
+  }
+  await updateDoc(doc(db, 'equipos', equipoId, 'integrantes', memberUid), { posicion })
 }

@@ -122,8 +122,14 @@ function Dashboard({
   ), [user.uid])
 
   async function onInterest(post: Publicacion) {
-    await solicitarParticipacion(post, user, displayName)
-    setLocalNotice('Solicitud enviada. El autor puede aceptarla desde Matches.')
+    if (tipoCuenta === 'jugador'
+      && (post.categoria !== 'equipo_busca_jugadores' || post.autorTipoCuenta !== 'capitan')) {
+      throw new Error('Un jugador solo puede postular a vacantes publicadas por capitanes.')
+    }
+    await solicitarParticipacion(post, user, displayName, tipoCuenta)
+    setLocalNotice(tipoCuenta === 'jugador'
+      ? 'Postulación enviada al capitán. Podrás ver su respuesta en Matches.'
+      : 'Solicitud enviada. El autor puede aceptarla desde Matches.')
   }
 
   async function onDelete(post: Publicacion) {
@@ -160,7 +166,10 @@ function Dashboard({
         {navItems.map((item) => <button
           className={view === item.id ? 'active' : ''} type="button" key={item.id}
           onClick={() => goTo(item.id)}
-        ><span className="nav-icon">{item.icon}</span>{item.id === 'publicar' && tipoCuenta === 'dueno_cancha' ? 'Anunciar cancha' : item.label}
+        ><span className="nav-icon">{item.icon}</span>{item.id === 'publicar'
+            ? tipoCuenta === 'dueno_cancha' ? 'Anunciar cancha'
+              : tipoCuenta === 'jugador' ? 'Buscar equipo' : item.label
+            : item.label}
           {item.id === 'matches' && newRequests > 0 && <span className="nav-badge">{newRequests}</span>}
         </button>)}
       </nav>
@@ -190,7 +199,8 @@ function Dashboard({
         onPublish={publicarCategoria} onInterest={onInterest} onDelete={onDelete} />}
       {view === 'explorar' && <Explore publicaciones={publicaciones} filter={filter} setFilter={setFilter}
         loading={postsLoading} error={postsError}
-        userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />}
+        userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete}
+        viewerTipoCuenta={tipoCuenta} />}
       {view === 'publicar' && <Publish
         key={`${tipoCuenta}:${categoriaInicial}`}
         user={user} nombreAutor={displayName} tipoCuenta={tipoCuenta}
@@ -206,12 +216,14 @@ function Dashboard({
       {view === 'perfil' && <Perfil user={user} perfil={perfil} loading={perfilLoading}
         error={perfilError} onNotice={(message) => setLocalNotice(message)} />}
       {view === 'ayuda' && <SimplePage icon="?" title="Centro de ayuda"
-        text="Para buscar jugadores o equipos, visita Explorar y presiona «Me interesa». El autor recibe la solicitud en Matches. Una vez aceptada, se habilita la conversación en Mensajes. Puedes cambiar tu ubicación y datos deportivos en Perfil."
+        text={tipoCuenta === 'jugador'
+          ? 'En Explorar verás las vacantes publicadas por capitanes. Pulsa «Postular al equipo». El capitán recibirá tu postulación en Matches y, si la acepta, podrán conversar por Mensajes. También puedes publicar «Busco equipo».'
+          : 'En Explorar puedes contactar a otros usuarios mediante «Me interesa». El autor recibe la solicitud en Matches. Una vez aceptada, se habilita el chat de Mensajes.'}
         button="Explorar publicaciones" onClick={() => goTo('explorar')} />}
     </main>
     <nav className="bottom-nav">
       {navItems.filter((item) => item.id !== 'mis_publicaciones').slice(0, 5).map((item) => <button className={view === item.id ? 'active' : ''}
-        type="button" key={item.id} onClick={() => goTo(item.id)}><span>{item.icon}</span>{item.label}</button>)}
+        type="button" key={item.id} onClick={() => goTo(item.id)}><span>{item.icon}</span>{item.id === 'publicar' && tipoCuenta === 'jugador' ? 'Busco equipo' : item.label}</button>)}
     </nav>
   </div>
 }

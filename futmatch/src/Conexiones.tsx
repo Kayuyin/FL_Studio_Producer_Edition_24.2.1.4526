@@ -35,10 +35,14 @@ function SolicitudItem({
       <span className={`request-status request-status-${solicitud.estado}`}>{statusName(solicitud.estado)}</span>
     </div>
     <p className="request-title">{solicitud.tituloPublicacion}</p>
-    <p className="muted">{incoming ? 'Quiere contactar por tu publicación.' : 'Solicitud enviada al autor de esta publicación.'}</p>
+    <p className="muted">{solicitud.tipoSolicitud === 'postulacion'
+      ? incoming ? 'Un jugador postula a una vacante de tu equipo.' : 'Tu postulación fue enviada al capitán.'
+      : incoming ? 'Quiere contactar por tu publicación.' : 'Solicitud enviada al autor de esta publicación.'}</p>
+    {solicitud.tipoSolicitud === 'postulacion' && incoming && solicitud.estado === 'pendiente' &&
+      <p className="muted">Aceptar permite conversar por Mensajes; todavía no agrega automáticamente al jugador a la plantilla.</p>}
     <div className="request-actions">
       {incoming && solicitud.estado === 'pendiente' && <>
-        <button type="button" className="primary-button" disabled={busy} onClick={() => { void respond('aceptada') }}>Aceptar</button>
+        <button type="button" className="primary-button" disabled={busy} onClick={() => { void respond('aceptada') }}>{solicitud.tipoSolicitud === 'postulacion' ? 'Aceptar contacto' : 'Aceptar'}</button>
         <button type="button" className="secondary-button" disabled={busy} onClick={() => { void respond('rechazada') }}>Rechazar</button>
       </>}
       {solicitud.estado === 'aceptada' && <button type="button" className="secondary-button" onClick={() => onOpenChat(solicitud.id)}>Abrir conversación →</button>}
@@ -62,7 +66,7 @@ export function Matches({
     await responderSolicitud(id, estado)
   }
   return <div className="page">
-    <div className="page-heading"><div><p className="eyebrow">CONECTA CON LA COMUNIDAD</p><h1>Mis matches</h1><p className="muted">Revisa los contactos enviados y las solicitudes recibidas por tus publicaciones.</p></div></div>
+    <div className="page-heading"><div><p className="eyebrow">CONECTA CON LA COMUNIDAD</p><h1>Mis matches</h1><p className="muted">Revisa solicitudes, postulaciones a equipos y contactos enviados o recibidos.</p></div></div>
     {error && <p role="alert" className="posts-feedback posts-error">{error}</p>}
     {loading && !error && <p className="posts-feedback" role="status">Cargando tus solicitudes…</p>}
     <section className="requests-section">
@@ -75,7 +79,7 @@ export function Matches({
       <h2>Solicitudes enviadas <span className="request-count">{enviadas.length}</span></h2>
       {enviadas.length
         ? <div className="requests-grid">{enviadas.map((item) => <SolicitudItem key={item.id} solicitud={item} user={user} onOpenChat={onOpenChat} onChange={changeRequest} />)}</div>
-        : <p className="posts-feedback">Visita Explorar y utiliza «Me interesa» para solicitar contacto con otra persona.</p>}
+        : <p className="posts-feedback">Visita Explorar: los jugadores pueden «Postular al equipo» en vacantes de capitanes y otras cuentas pueden utilizar «Me interesa».</p>}
     </section>
   </div>
 }

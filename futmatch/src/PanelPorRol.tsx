@@ -40,12 +40,12 @@ export function PanelPorRol({
 
   let titulo = 'Tu fútbol empieza aquí'
   let subtitulo = 'Encuentra equipos y oportunidades para jugar en tu comuna.'
-  let destacado = 'Convocatorias de equipos que buscan jugadores'
+  let destacado = 'Vacantes publicadas por capitanes'
   let categoriaSugerida: Categoria = 'equipo_busca_jugadores'
   let accesos: Acceso[] = [
-    { texto: 'Buscar equipo', descripcion: 'Equipos que necesitan jugadores', icono: '⌕', accion: () => onExplore('equipo_busca_jugadores') },
+    { texto: 'Buscar equipo', descripcion: 'Vacantes publicadas por capitanes', icono: '⌕', accion: () => onExplore('equipo_busca_jugadores') },
     { texto: 'Ofrecerme como jugador', descripcion: 'Publica tu búsqueda de equipo', icono: '+', accion: () => onPublish('persona_busca_equipo') },
-    { texto: 'Buscar cancha', descripcion: 'Consulta canchas anunciadas', icono: '▣', accion: () => onExplore('ofrece_cancha') },
+    { texto: 'Mis postulaciones', descripcion: 'Revisa las solicitudes enviadas', icono: '♥', accion: () => onNavigate('matches') },
     { texto: 'Mis publicaciones', descripcion: 'Revisa o elimina tus anuncios', icono: '▤', accion: () => onNavigate('mis_publicaciones') },
   ]
 
@@ -67,7 +67,7 @@ export function PanelPorRol({
     categoriaSugerida = 'persona_busca_equipo'
     accesos = [
       { texto: 'Buscar jugadores', descripcion: 'Revisa jugadores disponibles', icono: '⌕', accion: () => onExplore('persona_busca_equipo') },
-      { texto: 'Convocar jugadores', descripcion: 'Publica posiciones necesarias', icono: '+', accion: () => onPublish('equipo_busca_jugadores') },
+      { texto: 'Mis publicaciones', descripcion: 'Administra los anuncios del equipo', icono: '▤', accion: () => onNavigate('mis_publicaciones') },
       { texto: 'Encontrar rivales', descripcion: 'Explora desafíos deportivos', icono: '⚔', accion: () => onExplore('equipo_busca_rival') },
       { texto: 'Crear desafío', descripcion: 'Publica un partido propuesto', icono: '▤', accion: () => onPublish('equipo_busca_rival') },
     ]
@@ -83,7 +83,9 @@ export function PanelPorRol({
       { texto: 'Contactos recibidos', descripcion: 'Revisa solicitudes de interés', icono: '♥', accion: () => onNavigate('matches') },
     ]
   }
-  const sugeridas = publicaciones.filter((post) => post.categoria === categoriaSugerida && post.autorUid !== uid).slice(0, 3)
+  const sugeridas = publicaciones.filter((post) => post.categoria === categoriaSugerida
+    && post.autorUid !== uid
+    && (tipoCuenta !== 'jugador' || post.autorTipoCuenta === 'capitan')).slice(0, 3)
 
   return <div className="page">
     <div className="role-welcome">
@@ -119,8 +121,10 @@ export function PanelPorRol({
       {loading && <p className="posts-feedback" role="status">Cargando publicaciones…</p>}
       {!loading && !error && (sugeridas.length
         ? <div className="post-grid">{sugeridas.map((post) =>
-          <PublicacionCard key={post.id} post={post} userUid={uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />)}</div>
-        : <p className="posts-feedback">Todavía no hay publicaciones de esta categoría. Puedes revisar todas en Explorar.</p>)}
+          <PublicacionCard key={post.id} post={post} userUid={uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} viewerTipoCuenta={tipoCuenta} />)}</div>
+        : <p className="posts-feedback">{tipoCuenta === 'jugador'
+          ? 'Todavía no hay vacantes publicadas por capitanes. Revisa Explorar más adelante.'
+          : 'Todavía no hay publicaciones de esta categoría. Puedes revisar todas en Explorar.'}</p>)}
     </section>
     {tipoCuenta === 'dueno_cancha' && <p className="role-note">FutMatch permite publicar canchas y contactar a personas interesadas. La reserva, el pago y la disponibilidad confirmada se coordinan fuera de la plataforma.</p>}
   </div>

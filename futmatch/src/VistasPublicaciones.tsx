@@ -10,8 +10,8 @@ import type { Solicitud } from './solicitudes'
 
 const tipos = Object.keys(categorias) as Categoria[]
 const tiposPublicables: Record<TipoCuenta, Categoria[]> = {
-  jugador: ['persona_busca_equipo', 'busca_cancha'],
-  equipo: ['equipo_busca_jugadores', 'equipo_busca_rival', 'busca_cancha'],
+  jugador: ['persona_busca_equipo'],
+  equipo: ['equipo_busca_rival', 'busca_cancha'],
   capitan: ['equipo_busca_jugadores', 'equipo_busca_rival', 'busca_cancha'],
   dueno_cancha: ['ofrece_cancha'],
 }
@@ -55,13 +55,14 @@ function EstadoListado({ loading, error }: { loading: boolean; error: string }) 
 }
 
 export function PublicacionCard({
-  post, userUid, solicitudes, onInterest, onDelete,
+  post, userUid, solicitudes, onInterest, onDelete, viewerTipoCuenta = 'jugador',
 }: {
   post: Publicacion
   userUid: string
   solicitudes: Solicitud[]
   onInterest: (post: Publicacion) => Promise<void>
   onDelete: (post: Publicacion) => Promise<void>
+  viewerTipoCuenta?: TipoCuenta
 }) {
   const [sending, setSending] = useState(false)
   const [deleting, setDeleting] = useState(false)
@@ -69,8 +70,10 @@ export function PublicacionCard({
   const [error, setError] = useState('')
   const alreadySent = solicitudes.find((item) =>
     item.publicacionId === post.id && item.interesadoUid === userUid)
+  const esVacanteCapitan = post.categoria === 'equipo_busca_jugadores' && post.autorTipoCuenta === 'capitan'
+  const puedeContactar = viewerTipoCuenta !== 'jugador' || esVacanteCapitan
   async function interest() {
-    if (sending || alreadySent || post.autorUid === userUid) return
+    if (sending || alreadySent || post.autorUid === userUid || !puedeContactar) return
     setSending(true)
     setError('')
     try { await onInterest(post) }
@@ -122,13 +125,13 @@ export function PublicacionCard({
               Eliminar
             </button>
           </div>
-        : <button type="button" className="interest-button"
+        : puedeContactar && <button type="button" className="interest-button"
             disabled={!!alreadySent || sending} onClick={() => { void interest() }}>
             {sending ? 'Enviando…' : alreadySent
               ? alreadySent.estado === 'aceptada' ? '✓ Contacto aceptado'
-                : alreadySent.estado === 'rechazada' ? 'Solicitud rechazada'
-                : '✓ Solicitud enviada'
-              : '♡ Me interesa'}
+                : alreadySent.estado === 'rechazada' ? 'Postulación rechazada'
+                : esVacanteCapitan ? '✓ Postulación enviada' : '✓ Solicitud enviada'
+              : viewerTipoCuenta === 'jugador' ? 'Postular al equipo' : '♡ Me interesa'}
           </button>}
     </div>
     {confirmDelete && post.autorUid === userUid && <div className="post-delete-confirm" role="group" aria-label="Confirmar eliminación">
@@ -194,7 +197,7 @@ export function Home({
 }
 
 export function Explore({
-  publicaciones, filter, setFilter, loading, error, userUid, solicitudes, onInterest, onDelete,
+  publicaciones, filter, setFilter, loading, error, userUid, solicitudes, onInterest, onDelete, viewerTipoCuenta,
 }: {
   publicaciones: Publicacion[]
   filter: Categoria | 'todos'
@@ -205,45 +208,54 @@ export function Explore({
   solicitudes: Solicitud[]
   onInterest: (post: Publicacion) => Promise<void>
   onDelete: (post: Publicacion) => Promise<void>
+  viewerTipoCuenta: TipoCuenta
 }) {
   const [search, setSearch] = useState('')
   const [nivel, setNivel] = useState<Nivel | 'todos'>('todos')
   const [comunaCancha, setComunaCancha] = useState('')
+  const filtroActivo = viewerTipoCuenta === 'jugador' ? 'equipo_busca_jugadores' : filter
   const result = useMemo(() => {
     const term = search.trim().toLocaleLowerCase('es-CL')
     return publicaciones.filter((post) =>
-      (filter === 'todos' || post.categoria === filter)
-      && (filter === 'busca_cancha' || filter === 'ofrece_cancha' || nivel === 'todos' || post.nivel === nivel)
-      && (!['busca_cancha', 'ofrece_cancha'].includes(filter) || !comunaCancha || post.comuna === comunaCancha)
+      (viewerTipoCuenta !== 'jugador' || post.autorTipoCuenta === 'capitan')
+      && (filtroActivo === 'todos' || post.categoria === filtroActivo)
+      && (filtroActivo === 'busca_cancha' || filtroActivo === 'ofrece_cancha' || nivel === 'todos' || post.nivel === nivel)
+      && (!['busca_cancha', 'ofrece_cancha'].includes(filtroActivo) || !comunaCancha || post.comuna === comunaCancha)
       && (!term || [post.titulo, post.descripcion, post.comuna, post.autorNombre, post.equipoNombre]
         .some((value) => value.toLocaleLowerCase('es-CL').includes(term))),
     )
-  }, [publicaciones, filter, search, nivel, comunaCancha])
+  }, [publicaciones, filtroActivo, search, nivel, comunaCancha, viewerTipoCuenta])
 
   return <div className="page">
     <div className="page-heading"><div>
       <p className="eyebrow">DESCUBRE OPORTUNIDADES</p>
       <h1>Explorar publicaciones</h1>
-      <p className="muted">Encuentra jugadores, equipos, rivales, ofertas y solicitudes de canchas.</p>
+      <p className="muted">{viewerTipoCuenta === 'jugador'
+        ? 'Revisa las vacantes publicadas por capitanes y postula al equipo que te interese.'
+        : 'Encuentra jugadores, equipos, rivales, ofertas y solicitudes de canchas.'}</p>
     </div></div>
     <div className="filters" role="group" aria-label="Filtrar por categoría">
-      <button className={filter === 'todos' ? 'selected' : ''} aria-pressed={filter === 'todos'} onClick={() => setFilter('todos')}>Todas</button>
-      {tipos.map((tipo) => <button key={tipo} className={filter === tipo ? 'selected' : ''} aria-pressed={filter === tipo} onClick={() => setFilter(tipo)}>{categorias[tipo].icon} {categorias[tipo].label}</button>)}
+      {viewerTipoCuenta === 'jugador'
+        ? <span className="player-vacancy-label">⚽ Vacantes publicadas por capitanes</span>
+        : <>
+            <button className={filter === 'todos' ? 'selected' : ''} aria-pressed={filter === 'todos'} onClick={() => setFilter('todos')}>Todas</button>
+            {tipos.map((tipo) => <button key={tipo} className={filter === tipo ? 'selected' : ''} aria-pressed={filter === tipo} onClick={() => setFilter(tipo)}>{categorias[tipo].icon} {categorias[tipo].label}</button>)}
+          </>}
     </div>
     <div className="filter-row">
       <label className="search-box" aria-label="Buscar publicaciones">⌕ <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por comuna, nombre o publicación" /></label>
-      {['busca_cancha', 'ofrece_cancha'].includes(filter) && <select aria-label="Filtrar canchas por comuna" value={comunaCancha} onChange={(event) => setComunaCancha(event.target.value)}>
+      {['busca_cancha', 'ofrece_cancha'].includes(filtroActivo) && <select aria-label="Filtrar canchas por comuna" value={comunaCancha} onChange={(event) => setComunaCancha(event.target.value)}>
         <option value="">Todas las comunas</option>
         {REGIONES_CHILE.flatMap((region) => region.comunas.map((item) =>
           <option key={item.codigo} value={item.nombre}>{item.nombre} · {region.nombre}</option>))}
       </select>}
-      {!['busca_cancha', 'ofrece_cancha'].includes(filter) && <select aria-label="Filtrar por nivel" value={nivel} onChange={(event) => setNivel(event.target.value as Nivel | 'todos')}>
+      {!['busca_cancha', 'ofrece_cancha'].includes(filtroActivo) && <select aria-label="Filtrar por nivel" value={nivel} onChange={(event) => setNivel(event.target.value as Nivel | 'todos')}>
         <option value="todos">Cualquier nivel</option>
         {niveles.map((item) => <option key={item}>{item}</option>)}
       </select>}
     </div>
     <div className="result-heading"><h2>{result.length} {result.length === 1 ? 'publicación encontrada' : 'publicaciones encontradas'}</h2><span className="muted">Más recientes primero</span></div>
-    {result.length ? <div className="post-grid explore-grid">{result.map((post) => <PublicacionCard key={post.id} post={post} userUid={userUid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} />)}</div> : <EstadoListado loading={loading} error={error} />}
+    {result.length ? <div className="post-grid explore-grid">{result.map((post) => <PublicacionCard key={post.id} post={post} userUid={userUid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete} viewerTipoCuenta={viewerTipoCuenta} />)}</div> : <EstadoListado loading={loading} error={error} />}
   </div>
 }
 
@@ -317,6 +329,7 @@ export function Publish({
       categoria,
       autorUid: user.uid,
       autorNombre: nombreAutor.trim(),
+      autorTipoCuenta: tipoCuenta,
       equipoNombre: isEquipo ? equipoNombre.trim() : '',
       nombreCancha: isOffer ? nombreCancha.trim() : '',
       titulo: titulo.trim(),

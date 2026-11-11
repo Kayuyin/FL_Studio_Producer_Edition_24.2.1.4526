@@ -6,10 +6,13 @@ import {
 import type { Timestamp, Unsubscribe } from 'firebase/firestore'
 import { db } from './firebase'
 import type { Publicacion } from './publicaciones'
+import type { TipoCuenta } from './tiposCuenta'
 
 export type EstadoSolicitud = 'pendiente' | 'aceptada' | 'rechazada'
+export type TipoSolicitud = 'postulacion' | 'contacto'
 export type Solicitud = {
   id: string
+  tipoSolicitud: TipoSolicitud
   publicacionId: string
   autorPublicacionUid: string
   interesadoUid: string
@@ -33,6 +36,7 @@ const solicitudesRef = collection(db, 'solicitudes')
 function parseSolicitud(id: string, data: Record<string, unknown>): Solicitud {
   return {
     id,
+    tipoSolicitud: data.tipoSolicitud === 'postulacion' ? 'postulacion' : 'contacto',
     publicacionId: String(data.publicacionId ?? ''),
     autorPublicacionUid: String(data.autorPublicacionUid ?? ''),
     interesadoUid: String(data.interesadoUid ?? ''),
@@ -81,10 +85,16 @@ export async function solicitarParticipacion(
   post: Publicacion,
   user: User,
   nombreInteresado: string,
+  tipoCuenta: TipoCuenta,
 ): Promise<void> {
   if (post.autorUid === user.uid) throw new Error('No puedes solicitar participar en tu propia publicación.')
+  if (tipoCuenta === 'jugador'
+    && (post.categoria !== 'equipo_busca_jugadores' || post.autorTipoCuenta !== 'capitan')) {
+    throw new Error('Los jugadores solo pueden postular a vacantes publicadas por capitanes.')
+  }
   const id = `${post.id}_${user.uid}`
   await setDoc(doc(db, 'solicitudes', id), {
+    tipoSolicitud: tipoCuenta === 'jugador' ? 'postulacion' : 'contacto',
     publicacionId: post.id,
     autorPublicacionUid: post.autorUid,
     interesadoUid: user.uid,

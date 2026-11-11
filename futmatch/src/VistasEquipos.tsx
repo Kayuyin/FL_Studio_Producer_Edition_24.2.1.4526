@@ -5,6 +5,7 @@ import type { EquipoRegistrado, IntegranteEquipo } from './equipos'
 import { actualizarPosicion, crearEquipo, editarEquipo, escucharPlantilla,
   nombrarCapitan, nombrarCapitanResponsable, quitarIntegrante, ESCUDOS_EQUIPO, POSICIONES_EQUIPO } from './equipos'
 import type { PerfilUsuario } from './Perfil'
+import { REGIONES_CHILE, obtenerRegion } from './territorioChile'
 
 export function CatalogoEquipos({
   equipos, loading, error, onOpenTeam, onFindVacancies,
@@ -47,6 +48,23 @@ export function CatalogoEquipos({
   </div>
 }
 
+function lugarInicial(equipo: EquipoRegistrado | null, perfil: PerfilUsuario | null) {
+  const comunaAnterior = equipo?.comuna || perfil?.comuna || ''
+  const regionDelEquipo = equipo?.comuna
+    ? REGIONES_CHILE.find(region => region.comunas.some(c => c.nombre === equipo.comuna))
+    : undefined
+  const regionDelPerfil = perfil?.comuna
+    ? REGIONES_CHILE.find(region => region.comunas.some(c => c.nombre === perfil.comuna))
+    : undefined
+  const regionCodigo = equipo?.regionCodigo || regionDelEquipo?.codigo
+    || perfil?.regionCodigo || regionDelPerfil?.codigo || ''
+  const region = obtenerRegion(regionCodigo)
+  const comunaCodigo = equipo?.comunaCodigo
+    || region?.comunas.find(c => c.nombre === comunaAnterior)?.codigo
+    || (!equipo && perfil?.comunaCodigo) || ''
+  return { regionCodigo, comunaCodigo }
+}
+
 export function FichaEquipo({
   equipo, user, perfil, onNotice, onBack, onFindPlayers,
 }: {
@@ -67,6 +85,9 @@ export function FichaEquipo({
   const [escudo, setEscudo] = useState(equipo?.escudo || '⚽')
   const [modalidad, setModalidad] = useState(equipo?.modalidad || 'Fútbol 7')
   const [nivel, setNivel] = useState(equipo?.nivel || 'Amateur')
+  const [regionCodigo, setRegionCodigo] = useState(() => lugarInicial(equipo, perfil).regionCodigo)
+  const [comunaCodigo, setComunaCodigo] = useState(() => lugarInicial(equipo, perfil).comunaCodigo)
+  const regionSeleccionada = obtenerRegion(regionCodigo)
 
   useEffect(() => {
     if (!equipo) { setIntegrantes([]); return }
@@ -86,7 +107,7 @@ export function FichaEquipo({
     setSaving(true)
     setError('')
     try {
-      await crearEquipo(user, perfil, escudo, modalidad, nivel)
+      await crearEquipo(user, perfil, escudo, modalidad, nivel, { regionCodigo, comunaCodigo })
       onNotice('Equipo registrado. Ya puedes publicar convocatorias y mostrar su plantilla.')
     } catch (cause) {
       const code = (cause as { code?: string }).code
@@ -102,7 +123,8 @@ export function FichaEquipo({
     setSaving(true)
     setError('')
     try {
-      await editarEquipo(equipo.id, nombre, descripcion, equipo.comuna, escudo, modalidad, nivel)
+      await editarEquipo(equipo.id, nombre, descripcion, escudo, modalidad, nivel,
+        { regionCodigo, comunaCodigo })
       onNotice('Datos del equipo actualizados.')
     } catch (cause) {
       setError((cause as Error).message || 'No se pudieron actualizar los datos del equipo.')
@@ -159,6 +181,29 @@ export function FichaEquipo({
     } finally { setSaving(false) }
   }
 
+  const ubicacionDelEquipo = <div className="team-location-fields">
+    <p className="muted">La ubicación del equipo es independiente de la comuna de tu perfil personal.</p>
+    <div className="form-columns">
+      <label>Región del equipo
+        <select required value={regionCodigo} onChange={event => {
+          setRegionCodigo(event.target.value)
+          setComunaCodigo('')
+        }}>
+          <option value="">Selecciona una región</option>
+          {REGIONES_CHILE.map(region => <option key={region.codigo} value={region.codigo}>{region.nombre}</option>)}
+        </select>
+      </label>
+      <label>Comuna del equipo
+        <select required disabled={!regionSeleccionada} value={comunaCodigo}
+          onChange={event => setComunaCodigo(event.target.value)}>
+          <option value="">Selecciona una comuna</option>
+          {regionSeleccionada?.comunas.map(comuna =>
+            <option key={comuna.codigo} value={comuna.codigo}>{comuna.nombre}</option>)}
+        </select>
+      </label>
+    </div>
+  </div>
+
   const datosDeportivos = <div className="form-columns">
     <label>Escudo representativo
       <select value={escudo} onChange={event => setEscudo(event.target.value)}>
@@ -184,12 +229,13 @@ export function FichaEquipo({
     <div className="form-card">
       <p><strong>Nombre:</strong> {perfil?.nombreEquipo || 'Falta completar el nombre en Perfil'}</p>
       <p><strong>Responsable:</strong> {perfil?.nombre || user.displayName || 'Sin nombre'}</p>
-      <p><strong>Comuna:</strong> {perfil?.comuna || 'Sin comuna'}</p>
+      <h2>Ubicación del equipo</h2>
+      {ubicacionDelEquipo}
       {datosDeportivos}
       {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}
       <button type="button" className="primary-button" disabled={saving || !perfil?.nombreEquipo}
         onClick={() => { void register() }}>{saving ? 'Registrando…' : 'Registrar mi equipo'}</button>
-      <p className="muted">Si falta información, complétala primero en Perfil → Editar perfil.</p>
+      <p className="muted">El nombre del equipo y del responsable vienen de Perfil. Puedes elegir aquí su región y comuna sin cambiar tu ubicación personal.</p>
     </div>
   </div>
 
@@ -246,6 +292,8 @@ export function FichaEquipo({
         <label>Descripción
           <textarea value={descripcion} maxLength={350} rows={3} onChange={(event) => setDescripcion(event.target.value)} />
         </label>
+        <h3>Ubicación del equipo</h3>
+        {ubicacionDelEquipo}
         {datosDeportivos}
         <div className="request-actions">
           <button className="primary-button" disabled={saving} type="submit">Guardar datos</button>

@@ -211,3 +211,9 @@
 .court-edit-form input{width:100%;min-width:0;border:1px solid #dedbea;border-radius:9px;padding:11px;color:var(--text);background:#fff}
 .sports-panel button:focus-visible,.court-edit-form button:focus-visible{outline:3px solid #ac91f8;outline-offset:2px}
 @media(max-width:650px){.sports-panel{padding:16px}.sports-panel h2{font-size:17px}.sports-panel .request-actions>button{min-height:40px}}
+
+/* Reservas integradas a Conversaciones para el Dueño de cancha */
+.owner-bookings-embedded{padding:18px 0 24px;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.owner-bookings-embedded .page-heading{margin-bottom:12px}
+.owner-bookings-embedded .page-heading h2{font-size:20px;margin:4px 0}
+.owner-bookings-embedded .sports-cards{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}

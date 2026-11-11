@@ -42,11 +42,11 @@ Presentar una **página web responsive** en la que se pueda completar un proceso
 | P17 | D | Anunciar cancha con dirección, comuna, precio y horarios | Se crean `canchas/{id}` y `publicaciones/{id}` en el mismo batch |
 | P18 | D | Mis canchas → editar dirección/horario/precio | Se actualizan campos de cancha; anuncios anteriores no se reescriben |
 | P19 | C o E | Buscar canchas → elegir partido confirmado → Solicitar reserva | `reservas/{partidoId}_{canchaId}` estado pendiente y precio de la solicitud |
-| P20 | D | Solicitudes de reserva → Confirmar | `reserva.estado: confirmada`, `partido.reservaConfirmadaId` y `turnos/{fecha}_{hora}` se crean juntos |
+| P20 | D | Conversaciones y reservas → Solicitudes de reserva → Confirmar | `reserva.estado: confirmada`, `partido.reservaConfirmadaId` y `turnos/{fecha}_{hora}` se crean juntos |
 | P21 | E | Mis partidos y Reservas | Cancha y fecha aparecen confirmadas para ambos equipos |
 | P22 | D o equipos | Cancelar una reserva confirmada | `reserva.estado: cancelada`, turno liberado y partido queda sin cancha |
 | P23 | E | Mis publicaciones → Eliminar anuncio propio | Desaparece anuncio. No se puede eliminar el de otro usuario |
-| P24 | D | Conversaciones → responder consultas por anuncio | El contacto aceptado permite chat y persiste tras F5 |
+| P24 | D | Conversaciones y reservas → responder consultas por anuncio | El contacto aceptado permite chat y persiste tras F5 |
 
 ## Casos negativos y de seguridad
 

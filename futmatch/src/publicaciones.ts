@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore'
 import type { Timestamp, Unsubscribe } from 'firebase/firestore'
 import { db } from './firebase'
+import type { TipoCuenta } from './tiposCuenta'
 
 export const categorias = {
   persona_busca_equipo: { label: 'Persona busca equipo', shortLabel: 'Busco equipo', icon: '●', color: '#e45072' },
@@ -29,6 +30,7 @@ export type Publicacion = {
   categoria: Categoria
   autorUid: string
   autorNombre: string
+  autorTipoCuenta: TipoCuenta | ''
   equipoNombre: string
   nombreCancha: string
   titulo: string
@@ -63,6 +65,8 @@ export function escucharPublicaciones(
           categoria: data.categoria as Categoria,
           autorUid: String(data.autorUid ?? ''),
           autorNombre: String(data.autorNombre ?? 'Jugador'),
+          autorTipoCuenta: ['jugador', 'capitan', 'equipo', 'dueno_cancha'].includes(data.autorTipoCuenta)
+            ? data.autorTipoCuenta as TipoCuenta : '',
           equipoNombre: String(data.equipoNombre ?? ''),
           nombreCancha: String(data.nombreCancha ?? ''),
           titulo: String(data.titulo ?? ''),

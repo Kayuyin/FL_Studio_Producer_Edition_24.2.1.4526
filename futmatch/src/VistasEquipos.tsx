@@ -116,13 +116,15 @@ export function FichaEquipo({
     } finally { setSaving(false) }
   }
 
-  async function remove(uid: string) {
-    if (!equipo || (!isManager && uid !== user.uid)) return
+  async function remove(member: IntegranteEquipo) {
+    if (!equipo || (!isManager && member.uid !== user.uid)) return
     setSaving(true)
     setError('')
     try {
-      await quitarIntegrante(equipo.id, uid)
-      onNotice('Jugador retirado de la plantilla.')
+      await quitarIntegrante(equipo.id, member.uid, !isManager ? member.solicitudId : undefined)
+      onNotice(!isManager
+        ? 'Saliste del equipo y retiraste tu consentimiento de la plantilla.'
+        : 'Jugador retirado de la plantilla.')
     } catch {
       setError('No se pudo retirar al jugador. No puedes quitar al capitán actual.')
     } finally { setSaving(false) }
@@ -170,7 +172,7 @@ export function FichaEquipo({
         <div><strong>{member.nombre}</strong><small>Jugador confirmado</small></div>
         {(isManager || member.uid === user.uid) && <div className="team-member-actions">
           {isManager && <button type="button" className="secondary-button" disabled={saving} onClick={() => { void captain(member) }}>Nombrar capitán</button>}
-          <button type="button" className="delete-post-button" disabled={saving} onClick={() => { void remove(member.uid) }}>
+          <button type="button" className="delete-post-button" disabled={saving} onClick={() => { void remove(member) }}>
             {isManager ? 'Quitar' : 'Salir del equipo'}
           </button>
         </div>}

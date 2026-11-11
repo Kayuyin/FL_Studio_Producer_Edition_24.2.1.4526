@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import type { FormEvent } from 'react'
 import type { CanchaRegistrada } from './canchas'
 import { editarCancha } from './canchas'
 import type { Solicitud } from './solicitudes'
@@ -151,7 +152,7 @@ function FormularioCancha({ cancha, onNotice }: { cancha: CanchaRegistrada; onNo
   const [horarios, setHorarios] = useState(cancha.informacionHorarios)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
-  async function guardar(event: React.FormEvent<HTMLFormElement>) {
+  async function guardar(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
     setBusy(true)
     setError('')

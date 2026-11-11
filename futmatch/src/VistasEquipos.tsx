@@ -37,7 +37,7 @@ export function CatalogoEquipos({
         {filtrados.map((team) => <article key={team.id} className="team-card">
           <div className="team-shield">{team.escudo}</div>
           <h2>{team.nombre}</h2>
-          <p className="muted">{team.comuna}</p>
+          <p className="muted">{team.comuna}{team.region ? ` · ${team.region}` : ''}</p>
           <p className="team-captain"><strong>Capitán:</strong> {team.capitanNombre || 'Por asignar'}</p>
           <p className="muted">{team.modalidad} · {team.nivel}</p>
           <p className="team-description">{team.descripcion || 'Equipo de la comunidad FutMatch.'}</p>
@@ -244,7 +244,7 @@ export function FichaEquipo({
   return <div className="page">
     <div className="page-heading">
       <div><p className="eyebrow">FICHA DE EQUIPO</p><h1>{equipo.escudo} {equipo.nombre}</h1>
-        <p className="muted">{equipo.comuna} · {equipo.modalidad} · {equipo.nivel} · {equipo.descripcion || 'Equipo de la comunidad FutMatch.'}</p></div>
+        <p className="muted">{equipo.comuna}{equipo.region ? ` · ${equipo.region}` : ''} · {equipo.modalidad} · {equipo.nivel} · {equipo.descripcion || 'Equipo de la comunidad FutMatch.'}</p></div>
       <button className="secondary-button" type="button" onClick={onBack}>← Volver a equipos</button>
     </div>
     <section className="team-roster-card">

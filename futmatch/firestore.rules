@@ -125,12 +125,12 @@ service cloud.firestore {
 
       function validPublication(data) {
         return data.keys().hasOnly([
-            'categoria', 'autorUid', 'autorNombre', 'equipoNombre', 'nombreCancha',
+            'categoria', 'autorUid', 'autorNombre', 'autorTipoCuenta', 'equipoNombre', 'nombreCancha',
             'titulo', 'descripcion', 'comuna', 'futbol', 'nivel',
             'fecha', 'hora', 'estado', 'creadoEn'
           ])
           && data.keys().hasAll([
-            'categoria', 'autorUid', 'autorNombre', 'equipoNombre', 'nombreCancha',
+            'categoria', 'autorUid', 'autorNombre', 'autorTipoCuenta', 'equipoNombre', 'nombreCancha',
             'titulo', 'descripcion', 'comuna', 'futbol', 'nivel',
             'fecha', 'hora', 'estado', 'creadoEn'
           ])
@@ -139,6 +139,7 @@ service cloud.firestore {
           ]
           && data.autorUid is string
           && data.autorUid == request.auth.uid
+          && data.autorTipoCuenta in ['jugador', 'equipo', 'capitan', 'dueno_cancha']
           && data.autorNombre is string
           && data.autorNombre.size() >= 2
           && data.autorNombre.size() <= 70
@@ -180,9 +181,13 @@ service cloud.firestore {
       // Los formularios por rol también se validan al crear en Firestore.
       function rolePermitsCategory(data) {
         let role = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.get('tipoCuenta', 'jugador');
-        return (role == 'jugador' && data.categoria in ['persona_busca_equipo', 'busca_cancha'])
-          || (role in ['equipo', 'capitan'] && data.categoria in ['equipo_busca_jugadores', 'equipo_busca_rival', 'busca_cancha'])
-          || (role == 'dueno_cancha' && data.categoria == 'ofrece_cancha');
+        return data.autorTipoCuenta == role
+          && (
+            (role == 'jugador' && data.categoria == 'persona_busca_equipo')
+            || (role == 'capitan' && data.categoria in ['equipo_busca_jugadores', 'equipo_busca_rival', 'busca_cancha'])
+            || (role == 'equipo' && data.categoria in ['equipo_busca_rival', 'busca_cancha'])
+            || (role == 'dueno_cancha' && data.categoria == 'ofrece_cancha')
+          );
       }
 
       allow read: if loggedIn();
@@ -241,6 +246,16 @@ service cloud.firestore {
           && data.respondidoEn == null;
       }
 
+      // El jugador solo puede enviar postulaciones a vacantes de capitanes.
+      // Otras cuentas conservan las solicitudes de contacto de FutMatch.
+      function validApplicantRole(data) {
+        let interestedRole = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.get('tipoCuenta', 'jugador');
+        let publication = get(/databases/$(database)/documents/publicaciones/$(data.publicacionId)).data;
+        return interestedRole != 'jugador'
+          || (publication.categoria == 'equipo_busca_jugadores'
+            && publication.get('autorTipoCuenta', '') == 'capitan');
+      }
+
       allow get, list: if isParticipant(resource.data);
 
       allow create: if isSignedIn()
@@ -254,6 +269,7 @@ service cloud.firestore {
         && request.resource.data.tituloPublicacion ==
           get(/databases/$(database)/documents/publicaciones/$(request.resource.data.publicacionId)).data.titulo
         && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && validApplicantRole(request.resource.data)
         && request.resource.data.nombreInteresado ==
           get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombre;
 

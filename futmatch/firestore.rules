@@ -571,6 +571,192 @@ service cloud.firestore {
       }
     }
 
+    // Partidos: nacen de un contacto de rival aceptado entre dos equipos registrados.
+    match /partidos/{partidoId} {
+      function loggedIn() { return request.auth != null; }
+      function participa(data) {
+        return loggedIn()
+          && request.auth.uid in [data.equipoLocalId, data.equipoVisitanteId];
+      }
+      function validPartido(data) {
+        return data.keys().hasOnly([
+            'solicitudId','equipoLocalId','equipoVisitanteId','localNombre','visitanteNombre',
+            'creadoPorUid','fecha','hora','comuna','modalidad','estado',
+            'reservaConfirmadaId','creadoEn','confirmadoEn'
+          ])
+          && data.keys().hasAll([
+            'solicitudId','equipoLocalId','equipoVisitanteId','localNombre','visitanteNombre',
+            'creadoPorUid','fecha','hora','comuna','modalidad','estado',
+            'reservaConfirmadaId','creadoEn','confirmadoEn'
+          ])
+          && data.solicitudId == partidoId
+          && data.equipoLocalId is string && data.equipoVisitanteId is string
+          && data.equipoLocalId != data.equipoVisitanteId
+          && data.localNombre is string && data.localNombre.size() >= 2 && data.localNombre.size() <= 80
+          && data.visitanteNombre is string && data.visitanteNombre.size() >= 2 && data.visitanteNombre.size() <= 80
+          && data.creadoPorUid in [data.equipoLocalId, data.equipoVisitanteId]
+          && data.fecha is string && data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+          && data.hora is string && data.hora.matches('^([01][0-9]|2[0-3]):[0-5][0-9]$')
+          && data.comuna is string && data.comuna.size() >= 2 && data.comuna.size() <= 80
+          && data.modalidad in ['Fútbol 5','Fútbol 7','Fútbol 8','Fútbol 11']
+          && data.estado in ['propuesto','confirmado','cancelado']
+          && data.reservaConfirmadaId is string && data.reservaConfirmadaId.size() <= 256;
+      }
+      function matchAceptado(data) {
+        let solicitud = get(/databases/$(database)/documents/solicitudes/$(partidoId)).data;
+        let publicacion = get(/databases/$(database)/documents/publicaciones/$(solicitud.publicacionId)).data;
+        return solicitud.estado == 'aceptada'
+          && solicitud.tipoSolicitud == 'contacto'
+          && solicitud.autorPublicacionUid == data.equipoLocalId
+          && solicitud.interesadoUid == data.equipoVisitanteId
+          && publicacion.categoria == 'equipo_busca_rival'
+          && publicacion.equipoId == data.equipoLocalId
+          && publicacion.fecha == data.fecha
+          && publicacion.hora == data.hora
+          && publicacion.comuna == data.comuna
+          && publicacion.futbol == data.modalidad
+          && exists(/databases/$(database)/documents/equipos/$(data.equipoLocalId))
+          && exists(/databases/$(database)/documents/equipos/$(data.equipoVisitanteId))
+          && get(/databases/$(database)/documents/equipos/$(data.equipoLocalId)).data.nombre == data.localNombre
+          && get(/databases/$(database)/documents/equipos/$(data.equipoVisitanteId)).data.nombre == data.visitanteNombre;
+      }
+
+      allow get, list: if participa(resource.data);
+      allow create: if participa(request.resource.data)
+        && validPartido(request.resource.data)
+        && request.resource.data.creadoPorUid == request.auth.uid
+        && request.resource.data.estado == 'propuesto'
+        && request.resource.data.reservaConfirmadaId == ''
+        && request.resource.data.creadoEn == request.time
+        && request.resource.data.confirmadoEn == null
+        && exists(/databases/$(database)/documents/solicitudes/$(partidoId))
+        && matchAceptado(request.resource.data);
+
+      allow update: if participa(resource.data)
+        && resource.data.estado == 'propuesto'
+        && request.auth.uid != resource.data.creadoPorUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado','confirmadoEn'])
+        && request.resource.data.estado == 'confirmado'
+        && request.resource.data.confirmadoEn == request.time;
+
+      // Cancelar un partido no debe dejar una cancha reservada sin liberar.
+      allow update: if participa(resource.data)
+        && resource.data.estado in ['propuesto','confirmado']
+        && resource.data.reservaConfirmadaId == ''
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado'])
+        && request.resource.data.estado == 'cancelado';
+
+      // Solo un turno confirmado en una misma transacción puede asignarse al partido.
+      allow update: if loggedIn()
+        && resource.data.estado == 'confirmado'
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reservaConfirmadaId'])
+        && resource.data.reservaConfirmadaId == ''
+        && request.resource.data.reservaConfirmadaId is string
+        && request.resource.data.reservaConfirmadaId.size() > 2
+        && existsAfter(/databases/$(database)/documents/reservas/$(request.resource.data.reservaConfirmadaId))
+        && getAfter(/databases/$(database)/documents/reservas/$(request.resource.data.reservaConfirmadaId)).data.estado == 'confirmada'
+        && getAfter(/databases/$(database)/documents/reservas/$(request.resource.data.reservaConfirmadaId)).data.partidoId == partidoId
+        && getAfter(/databases/$(database)/documents/reservas/$(request.resource.data.reservaConfirmadaId)).data.duenoUid == request.auth.uid;
+
+      // Al cancelar el turno, el partido vuelve a quedar sin cancha.
+      allow update: if loggedIn()
+        && resource.data.reservaConfirmadaId != ''
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reservaConfirmadaId'])
+        && request.resource.data.reservaConfirmadaId == ''
+        && existsAfter(/databases/$(database)/documents/reservas/$(resource.data.reservaConfirmadaId))
+        && getAfter(/databases/$(database)/documents/reservas/$(resource.data.reservaConfirmadaId)).data.estado == 'cancelada'
+        && (
+          request.auth.uid == resource.data.equipoLocalId
+          || request.auth.uid == resource.data.equipoVisitanteId
+          || request.auth.uid == getAfter(/databases/$(database)/documents/reservas/$(resource.data.reservaConfirmadaId)).data.duenoUid
+        );
+      allow delete: if false;
+    }
+
+    // Reservas: los dueños confirman horarios exclusivos en transacciones.
+    match /reservas/{reservaId} {
+      function loggedIn() { return request.auth != null; }
+      function interesado(data) {
+        return loggedIn() && request.auth.uid in [
+          data.duenoUid, data.solicitanteUid, data.equipoLocalId, data.equipoVisitanteId
+        ];
+      }
+      function valida(data) {
+        return data.keys().hasOnly([
+          'partidoId','canchaId','canchaNombre','solicitanteUid','duenoUid',
+          'equipoLocalId','equipoVisitanteId','fecha','hora','nota','precioHora',
+          'estado','creadoEn','respondidoEn'
+        ])
+        && data.keys().hasAll([
+          'partidoId','canchaId','canchaNombre','solicitanteUid','duenoUid',
+          'equipoLocalId','equipoVisitanteId','fecha','hora','nota','precioHora',
+          'estado','creadoEn','respondidoEn'
+        ])
+        && data.partidoId is string && data.partidoId.size() > 0 && data.partidoId.size() <= 256
+        && data.canchaId is string && data.canchaId.size() > 0 && data.canchaId.size() <= 128
+        && reservaId == data.partidoId + '_' + data.canchaId
+        && data.canchaNombre is string && data.canchaNombre.size() >= 2 && data.canchaNombre.size() <= 100
+        && data.solicitanteUid in [data.equipoLocalId,data.equipoVisitanteId]
+        && data.duenoUid is string
+        && data.fecha is string && data.fecha.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && data.hora is string && data.hora.matches('^([01][0-9]|2[0-3]):00$')
+        && data.nota is string && data.nota.size() <= 240
+        && data.precioHora is int && data.precioHora >= 0 && data.precioHora <= 1000000
+        && data.estado == 'pendiente'
+        && data.respondidoEn == null && data.creadoEn == request.time;
+      }
+      function coincide(data) {
+        let partido = get(/databases/$(database)/documents/partidos/$(data.partidoId)).data;
+        let cancha = get(/databases/$(database)/documents/canchas/$(data.canchaId)).data;
+        return partido.estado == 'confirmado'
+          && partido.reservaConfirmadaId == ''
+          && partido.equipoLocalId == data.equipoLocalId
+          && partido.equipoVisitanteId == data.equipoVisitanteId
+          && partido.fecha == data.fecha && partido.hora == data.hora
+          && cancha.duenoUid == data.duenoUid
+          && cancha.nombre == data.canchaNombre
+          && cancha.precioHora == data.precioHora
+          && cancha.duenoUid != request.auth.uid;
+      }
+
+      allow get, list: if interesado(resource.data);
+      allow create: if loggedIn()
+        && valida(request.resource.data)
+        && request.resource.data.solicitanteUid == request.auth.uid
+        && exists(/databases/$(database)/documents/partidos/$(request.resource.data.partidoId))
+        && exists(/databases/$(database)/documents/canchas/$(request.resource.data.canchaId))
+        && coincide(request.resource.data);
+
+      allow update: if loggedIn() && resource.data.estado == 'pendiente'
+        && request.auth.uid == resource.data.duenoUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado','respondidoEn'])
+        && request.resource.data.estado == 'rechazada'
+        && request.resource.data.respondidoEn == request.time;
+
+      allow update: if loggedIn() && resource.data.estado == 'pendiente'
+        && request.auth.uid == resource.data.duenoUid
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado','respondidoEn'])
+        && request.resource.data.estado == 'confirmada'
+        && request.resource.data.respondidoEn == request.time
+        && getAfter(/databases/$(database)/documents/partidos/$(resource.data.partidoId)).data.reservaConfirmadaId == reservaId
+        && existsAfter(/databases/$(database)/documents/canchas/$(resource.data.canchaId)/turnos/$(resource.data.fecha + '_' + resource.data.hora))
+        && getAfter(/databases/$(database)/documents/canchas/$(resource.data.canchaId)/turnos/$(resource.data.fecha + '_' + resource.data.hora)).data.reservaId == reservaId;
+
+      allow update: if interesado(resource.data)
+        && resource.data.estado in ['pendiente','confirmada']
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado','respondidoEn'])
+        && request.resource.data.estado == 'cancelada'
+        && request.resource.data.respondidoEn == request.time
+        && (
+          resource.data.estado == 'pendiente'
+          || (
+            getAfter(/databases/$(database)/documents/partidos/$(resource.data.partidoId)).data.reservaConfirmadaId == ''
+            && !existsAfter(/databases/$(database)/documents/canchas/$(resource.data.canchaId)/turnos/$(resource.data.fecha + '_' + resource.data.hora))
+          )
+        );
+      allow delete: if false;
+    }
+
     // Las demás colecciones permanecen bloqueadas.
     match /{document=**} {
       allow read, write: if false;

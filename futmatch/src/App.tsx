@@ -126,7 +126,7 @@ function Dashboard({
       && (post.categoria !== 'equipo_busca_jugadores' || post.autorTipoCuenta !== 'capitan')) {
       throw new Error('Un jugador solo puede postular a vacantes publicadas por capitanes.')
     }
-    await solicitarParticipacion(post, user, displayName)
+    await solicitarParticipacion(post, user, displayName, tipoCuenta)
     setLocalNotice(tipoCuenta === 'jugador'
       ? 'Postulación enviada al capitán. Podrás ver su respuesta en Matches.'
       : 'Solicitud enviada. El autor puede aceptarla desde Matches.')

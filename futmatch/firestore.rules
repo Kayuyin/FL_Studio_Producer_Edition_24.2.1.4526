@@ -274,7 +274,11 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
           .hasOnly(['nombre','descripcion','comuna','capitanUid','capitanNombre'])
         && validEquipo(request.resource.data)
-        && capitanPermitido(request.resource.data);
+        && (
+          (request.resource.data.capitanUid == resource.data.capitanUid
+            && request.resource.data.capitanNombre == resource.data.capitanNombre)
+          || capitanPermitido(request.resource.data)
+        );
       allow delete: if false;
 
       match /integrantes/{memberUid} {
@@ -313,7 +317,10 @@ service cloud.firestore {
           && exists(/databases/$(database)/documents/solicitudes/$(request.resource.data.solicitudId))
           && validoDesdeSolicitud(request.resource.data)
           && request.resource.data.creadoEn == request.time;
-        allow delete: if manager()
+        // El miembro también puede salir voluntariamente de una plantilla.
+        // Para evitar equipos sin capitán, primero debe designarse otro si corresponde.
+        allow delete: if request.auth != null
+          && (manager() || request.auth.uid == memberUid)
           && get(/databases/$(database)/documents/equipos/$(equipoId)).data.capitanUid != memberUid;
         allow update: if false;
       }

@@ -132,10 +132,15 @@ function EditarPerfil({
   return <form className="profile-edit-form" onSubmit={(event) => { void submit(event) }}>
     <label>Tipo de cuenta
       <select required value={tipoCuenta} onChange={(event) => setTipoCuenta(event.target.value as TipoCuenta)}>
+        {perfil?.tipoCuenta === 'equipo' && <option value="equipo">Equipo (cuenta anterior)</option>}
         {TIPOS_CUENTA_IDS.map((tipo) =>
           <option key={tipo} value={tipo}>{TIPOS_CUENTA[tipo].label}</option>)}
       </select>
     </label>
+    {perfil?.tipoCuenta === 'equipo' && <p className="posts-feedback" role="status">
+      FutMatch ahora usa Capitán para administrar equipos, buscar jugadores y rivales, y reservar canchas.
+      Elige «Capitán» y guarda los cambios para actualizar tu cuenta sin perder tus publicaciones, equipo ni mensajes.
+    </p>}
     <p className="muted profile-type-hint">{TIPOS_CUENTA[tipoCuenta].description}</p>
     <div className="form-columns">
       <label>{tipoCuenta === 'jugador' || tipoCuenta === 'capitan' ? 'Nombre y apellido' : 'Nombre de la persona responsable'}

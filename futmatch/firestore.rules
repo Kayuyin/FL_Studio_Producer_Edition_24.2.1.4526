@@ -74,6 +74,8 @@ service cloud.firestore {
         && validNameAndCommune(request.resource.data)
         && validTerritory(request.resource.data)
         && validAccountType(request.resource.data)
+        // Nuevos registros: solo Jugador, Capitán o Dueño de cancha.
+        && request.resource.data.tipoCuenta in ['jugador', 'capitan', 'dueno_cancha']
         && validSportProfile(request.resource.data)
         && request.resource.data.correo == request.auth.token.email
         && request.resource.data.creadoEn == request.time;
@@ -114,6 +116,10 @@ service cloud.firestore {
         && validNameAndCommune(request.resource.data)
         && validTerritory(request.resource.data)
         && validAccountType(request.resource.data)
+        // Las cuentas Equipo antiguas pueden editarse o convertirse a Capitán,
+        // pero ninguna cuenta podrá volver a elegir Equipo tras el cambio.
+        && (request.resource.data.tipoCuenta != 'equipo'
+          || resource.data.tipoCuenta == 'equipo')
         && validSportProfile(request.resource.data);
       allow delete: if false;
     }

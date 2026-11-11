@@ -43,6 +43,9 @@ jobs:
         with:
           distribution: temurin
           java-version: '21'
-      # Levanta el emulador, que compila y valida firestore.rules.
-      # No requiere credenciales ni modifica el Firebase de producción.
-      - run: npx --yes firebase-tools@14.18.0 emulators:exec --project demo-futmatch --only firestore "node -e 'console.log(\"Reglas Firestore cargadas\")'"
+      # Compila firestore.rules y ejecuta consultas reales contra el emulador,
+      # incluyendo el acceso del dueño, los dos equipos y la denegación de terceros.
+      # No utiliza credenciales ni modifica Firebase de producción.
+      - run: npm ci
+      - run: npm install --no-save --package-lock=false @firebase/rules-unit-testing@5.0.0
+      - run: npx --yes firebase-tools@14.18.0 emulators:exec --project demo-futmatch --only firestore "node tests/reservas.rules.test.mjs"

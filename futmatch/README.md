@@ -4,23 +4,22 @@ Proyecto de título. Aplicación **web responsive** desarrollada con **React 19,
 
 ## Propósito
 
-FutMatch permite que jugadores encuentren equipos, capitanes gestionen plantillas, equipos coordinen rivales y dueños de canchas reciban solicitudes para horarios concretos. Usa Authentication para identificación y Cloud Firestore para los datos y la mensajería en tiempo real.
+FutMatch permite que jugadores encuentren equipos, capitanes gestionen plantillas y coordinen rivales, y dueños de canchas reciban solicitudes para horarios concretos. Usa Authentication para identificación y Cloud Firestore para los datos y la mensajería en tiempo real.
 
 ## Experiencias por cuenta
 
 | Cuenta | Funciones |
 | --- | --- |
 | Jugador | Buscar equipos, publicar «Busco equipo», postular a vacantes publicadas por capitanes, confirmar consentimiento de incorporación, consultar fichas y plantillas |
-| Capitán | Registrar su equipo, publicar vacantes, encontrar jugadores y rivales, administrar plantilla y posiciones, proponer y confirmar partidos, solicitar canchas |
-| Equipo | Registrar su equipo, encontrar jugadores disponibles y rivales, administrar plantilla, partidos y reservas. No ve vacantes de otros equipos buscando jugadores |
+| Capitán | Registrar y administrar su equipo, buscar otros equipos rivales, consultar plantillas, contactar desafíos, publicar vacantes, encontrar jugadores, organizar partidos y solicitar canchas |
 | Dueño de cancha | Anunciar y administrar sus canchas, editar dirección y tarifas, recibir conversaciones y aceptar/rechazar/cancelar solicitudes de reserva |
 
-El tipo de cuenta es declarado por el usuario. Los permisos efectivos se comprueban en `firestore.rules`.
+**Solo hay tres tipos de cuenta seleccionables:** Jugador, Capitán y Dueño de cancha. La ficha pública de un equipo sigue existiendo, pero no requiere un tipo de cuenta Equipo separado. Las cuentas Equipo anteriores pueden cambiar a Capitán desde Perfil conservando sus datos. Los permisos efectivos se comprueban en `firestore.rules`.
 
 ## Flujos principales
 
 1. **Integración de un jugador**: capitán publica vacante → jugador postula → capitán acepta contacto → jugador confirma incorporación → responsable agrega jugador a la plantilla → ficha pública muestra al integrante y su posición.
-2. **Partido entre equipos**: Equipo A publica un desafío con fecha y hora → Equipo B envía solicitud → Equipo A acepta contacto → un equipo crea propuesta de partido → el otro confirma → aparece en **Mis partidos**.
+2. **Partido entre equipos**: Capitán A registra su equipo y publica un desafío con fecha y hora → Capitán B registra otro equipo, busca rivales y envía una solicitud → Capitán A acepta contacto → se propone el partido → el otro capitán lo confirma → aparece en **Mis partidos**.
 3. **Reserva**: equipo con partido confirmado selecciona cancha → envía solicitud → dueño acepta o rechaza. Al aceptar, una transacción crea `canchas/{id}/turnos/{fecha}_{hora}` y asigna la reserva al partido. No se puede confirmar el mismo turno para dos encuentros. Al cancelar se libera el turno.
 4. **Conversaciones**: Match aceptado → ambos participantes pueden intercambiar mensajes en tiempo real.
 
@@ -84,7 +83,7 @@ Después de validar los casos funcionales:
 
 ## Pruebas y entrega
 
-Consultar [ENTREGA_Y_PRUEBAS.md](./ENTREGA_Y_PRUEBAS.md) para la matriz de verificación, preparación de cuatro cuentas, pruebas de permisos y demostración para el profesor.
+Consultar [ENTREGA_Y_PRUEBAS.md](./ENTREGA_Y_PRUEBAS.md) para la matriz de verificación, preparación de un jugador, dos capitanes y un dueño de cancha, pruebas de permisos y demostración para el profesor.
 
 ## Alcance y limitaciones
 

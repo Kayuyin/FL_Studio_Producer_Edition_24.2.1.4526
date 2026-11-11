@@ -10,7 +10,7 @@ import type { EquipoRegistrado } from './equipos'
 import { escucharCanchas } from './canchas'
 import type { CanchaRegistrada } from './canchas'
 import { CatalogoEquipos, FichaEquipo } from './VistasEquipos'
-import { CatalogoCanchas } from './VistasCanchas'
+import { CatalogoCanchas, EditarMisCanchas } from './VistasCanchas'
 import { escucharPartidos } from './partidos'
 import type { Partido } from './partidos'
 import { escucharReservas, solicitarReserva } from './reservas'
@@ -247,6 +247,10 @@ function Dashboard({
     if (post.autorUid !== user.uid) {
       throw new Error('Solo puedes eliminar tus propias publicaciones.')
     }
+    if (post.categoria === 'ofrece_cancha' && reservas.some(reserva =>
+      reserva.canchaId === post.canchaId && ['pendiente','confirmada'].includes(reserva.estado))) {
+      throw new Error('Esta cancha tiene reservas pendientes o confirmadas. Debes cancelarlas primero.')
+    }
     await eliminarPublicacion(post)
     setLocalNotice('Tu publicación se eliminó correctamente.')
   }
@@ -384,10 +388,14 @@ function Dashboard({
         regionPerfil={perfil?.regionCodigo || ''} comunaPerfil={perfil?.comunaCodigo || ''}
         categoriaInicial={categoriaInicial} equipo={miEquipo} onGoToEquipo={() => goTo('mi_equipo')}
         onCreated={afterPublish} />}
-      {currentView === 'mis_publicaciones' && <MisPublicaciones uid={user.uid}
-        publicaciones={publicaciones} solicitudes={solicitudes} loading={postsLoading}
-        error={postsError} onPublish={() => goTo('publicar')} onInterest={onInterest} onDelete={onDelete}
-        tipoCuenta={tipoCuenta} />}
+      {currentView === 'mis_publicaciones' && <>
+        <MisPublicaciones uid={user.uid}
+          publicaciones={publicaciones} solicitudes={solicitudes} loading={postsLoading}
+          error={postsError} onPublish={() => goTo('publicar')} onInterest={onInterest} onDelete={onDelete}
+          tipoCuenta={tipoCuenta} />
+        {tipoCuenta === 'dueno_cancha' && <EditarMisCanchas canchas={canchas} uid={user.uid}
+          onNotice={setLocalNotice} />}
+      </>}
       {currentView === 'matches' && <Matches user={user} solicitudes={solicitudes} loading={requestsLoading}
         error={requestsError} onOpenChat={openChat} publicaciones={publicaciones} miEquipo={miEquipo}
         equipos={equipos} onOpenTeam={openEquipo} onFindCanchas={goToCanchas}

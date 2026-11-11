@@ -213,7 +213,19 @@ service cloud.firestore {
         );
       }
 
-      allow read: if loggedIn();
+      // Las cuentas Equipo pueden consultar jugadores disponibles, rivales y canchas,
+      // pero no leer vacantes de jugadores creadas por otros equipos o capitanes.
+      // Se permite leer anuncios propios para mantener Mis publicaciones.
+      function puedeLeer() {
+        return loggedIn() && (
+          resource.data.autorUid == request.auth.uid
+          || !exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+          || get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.get('tipoCuenta', 'jugador') != 'equipo'
+          || resource.data.categoria != 'equipo_busca_jugadores'
+        );
+      }
+
+      allow read: if puedeLeer();
 
       allow create: if loggedIn()
         && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
@@ -416,6 +428,7 @@ service cloud.firestore {
         let interestedRole = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.get('tipoCuenta', 'jugador');
         let publication = get(/databases/$(database)/documents/publicaciones/$(data.publicacionId)).data;
         return (interestedRole in ['equipo', 'capitan'] && data.tipoSolicitud == 'contacto'
+            && (interestedRole != 'equipo' || publication.categoria != 'equipo_busca_jugadores')
             && (publication.categoria != 'equipo_busca_rival'
               || (exists(/databases/$(database)/documents/equipos/$(request.auth.uid))
                 && publication.equipoId != request.auth.uid)))

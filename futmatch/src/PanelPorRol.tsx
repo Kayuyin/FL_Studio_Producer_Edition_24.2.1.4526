@@ -34,9 +34,11 @@ export function PanelPorRol({
 }) {
   const equipo = perfil?.nombreEquipo || 'tu equipo'
   const cancha = perfil?.nombreCancha || 'tu cancha'
-  const mias = publicaciones.filter((post) => post.autorUid === uid)
+  const mias = publicaciones.filter((post) => post.autorUid === uid
+    && (tipoCuenta !== 'dueno_cancha' || post.categoria === 'ofrece_cancha'))
   const porResponder = solicitudes.filter((item) => item.autorPublicacionUid === uid && item.estado === 'pendiente').length
-  const conversaciones = solicitudes.filter((item) => item.estado === 'aceptada').length
+  const conversaciones = solicitudes.filter((item) => item.estado === 'aceptada'
+    && (tipoCuenta !== 'dueno_cancha' || item.autorPublicacionUid === uid)).length
 
   let titulo = 'Tu fútbol empieza aquí'
   let subtitulo = 'Encuentra equipos y oportunidades para jugar en tu comuna.'
@@ -73,14 +75,14 @@ export function PanelPorRol({
     ]
   } else if (tipoCuenta === 'dueno_cancha') {
     titulo = 'Panel de mis canchas'
-    subtitulo = `Administra los anuncios de ${cancha} y conecta con quienes buscan dónde jugar.`
-    destacado = 'Personas y equipos que están buscando cancha'
-    categoriaSugerida = 'busca_cancha'
+    subtitulo = `Anuncia ${cancha}, responde consultas y conversa con las personas interesadas.`
+    destacado = 'Mis canchas'
+    categoriaSugerida = 'ofrece_cancha'
     accesos = [
-      { texto: 'Anunciar mi cancha', descripcion: 'Publica un anuncio de tu recinto', icono: '+', accion: () => onPublish('ofrece_cancha') },
-      { texto: 'Encontrar interesados', descripcion: 'Solicitudes de cancha publicadas', icono: '⌕', accion: () => onExplore('busca_cancha') },
-      { texto: 'Mis anuncios', descripcion: 'Consulta o elimina tus ofertas', icono: '▤', accion: () => onNavigate('mis_publicaciones') },
-      { texto: 'Contactos recibidos', descripcion: 'Revisa solicitudes de interés', icono: '♥', accion: () => onNavigate('matches') },
+      { texto: 'Anunciar cancha', descripcion: 'Publica una oferta de tu recinto', icono: '+', accion: () => onPublish('ofrece_cancha') },
+      { texto: 'Mis canchas', descripcion: 'Revisa o elimina anuncios propios', icono: '▤', accion: () => onNavigate('mis_publicaciones') },
+      { texto: 'Conversaciones', descripcion: 'Acepta consultas y conversa por chat', icono: '▱', accion: () => onNavigate('mensajes') },
+      { texto: 'Editar perfil', descripcion: 'Actualiza los datos de tu cancha', icono: '◉', accion: () => onNavigate('perfil') },
     ]
   }
   const sugeridas = publicaciones.filter((post) => post.categoria === categoriaSugerida
@@ -98,7 +100,7 @@ export function PanelPorRol({
       <button className="secondary-button" type="button" onClick={() => onNavigate('perfil')}>Editar mi perfil</button>
     </div>
     <section className="role-stats" aria-label="Actividad de tu cuenta">
-      <div><strong>{mias.length}</strong><span>Mis publicaciones</span></div>
+      <div><strong>{mias.length}</strong><span>{tipoCuenta === 'dueno_cancha' ? 'Anuncios de cancha' : 'Mis publicaciones'}</span></div>
       <div><strong>{porResponder}</strong><span>Solicitudes pendientes</span></div>
       <div><strong>{conversaciones}</strong><span>Contactos aceptados</span></div>
     </section>
@@ -112,7 +114,7 @@ export function PanelPorRol({
         </button>)}
       </div>
     </section>
-    <section className="role-section">
+    {tipoCuenta !== 'dueno_cancha' && <section className="role-section">
       <div className="section-heading"><div><h2>{destacado}</h2>
         <p className="muted">Publicaciones recientes de la comunidad</p></div>
         <button className="text-button" onClick={() => onExplore(categoriaSugerida)} type="button">Ver todas →</button>
@@ -125,8 +127,8 @@ export function PanelPorRol({
         : <p className="posts-feedback">{tipoCuenta === 'jugador'
           ? 'Todavía no hay vacantes publicadas por capitanes. Revisa Explorar más adelante.'
           : 'Todavía no hay publicaciones de esta categoría. Puedes revisar todas en Explorar.'}</p>)}
-    </section>
-    {tipoCuenta === 'dueno_cancha' && <p className="role-note">FutMatch permite publicar canchas y contactar a personas interesadas. La reserva, el pago y la disponibilidad confirmada se coordinan fuera de la plataforma.</p>}
+    </section>}
+    {tipoCuenta === 'dueno_cancha' && <p className="role-note">Solo puedes publicar ofertas de cancha y atender conversaciones relacionadas con tus anuncios. FutMatch no confirma reservas ni gestiona pagos.</p>}
   </div>
 }
 

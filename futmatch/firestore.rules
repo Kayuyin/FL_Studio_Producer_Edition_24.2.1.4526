@@ -125,12 +125,12 @@ service cloud.firestore {
 
       function validPublication(data) {
         return data.keys().hasOnly([
-            'categoria', 'autorUid', 'autorNombre', 'equipoNombre', 'nombreCancha', 'nombreCancha',
+            'categoria', 'autorUid', 'autorNombre', 'equipoNombre', 'nombreCancha',
             'titulo', 'descripcion', 'comuna', 'futbol', 'nivel',
             'fecha', 'hora', 'estado', 'creadoEn'
           ])
           && data.keys().hasAll([
-            'categoria', 'autorUid', 'autorNombre', 'equipoNombre',
+            'categoria', 'autorUid', 'autorNombre', 'equipoNombre', 'nombreCancha',
             'titulo', 'descripcion', 'comuna', 'futbol', 'nivel',
             'fecha', 'hora', 'estado', 'creadoEn'
           ])

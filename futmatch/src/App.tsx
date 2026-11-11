@@ -290,12 +290,12 @@ function Dashboard({
   const newRequests = solicitudes.filter((item) =>
     item.autorPublicacionUid === user.uid && item.estado === 'pendiente').length
   const displayedNav = tipoCuenta === 'dueno_cancha'
-    ? navItems.filter((item) => ['inicio', 'publicar', 'mis_publicaciones', 'reservas', 'mensajes', 'perfil'].includes(item.id))
+    ? navItems.filter((item) => ['inicio', 'publicar', 'mis_publicaciones', 'mensajes', 'perfil'].includes(item.id))
     : tipoCuenta === 'jugador'
       ? navItems.filter((item) => !['mi_equipo', 'canchas', 'partidos', 'reservas'].includes(item.id))
       : navItems
   const mobileNav = displayedNav.filter(item => (tipoCuenta === 'dueno_cancha'
-    ? ['inicio','publicar','reservas','mensajes','perfil'].includes(item.id)
+    ? ['inicio','publicar','mensajes','perfil'].includes(item.id)
     : tipoCuenta === 'jugador'
       ? ['inicio','explorar','matches','mensajes','perfil'].includes(item.id)
       : ['inicio','mi_equipo','partidos','reservas','mensajes'].includes(item.id)))
@@ -306,7 +306,7 @@ function Dashboard({
     }
     if (item.id === 'publicar') return 'Anunciar cancha'
     if (item.id === 'mis_publicaciones') return 'Mis canchas'
-    if (item.id === 'mensajes') return 'Conversaciones'
+    if (item.id === 'mensajes') return 'Conversaciones y reservas'
     if (item.id === 'reservas') return 'Solicitudes de reserva'
     return item.label
   }
@@ -353,7 +353,8 @@ function Dashboard({
         loading={postsLoading} error={postsError} onNavigate={goTo} onExplore={explorarCategoria}
         onPublish={publicarCategoria} onInterest={onInterest} onDelete={onDelete}
         onOpenEquipos={() => goTo('equipos')} onOpenCanchas={() => goToCanchas()}
-        onOpenPartidos={() => goTo('partidos')} onOpenReservas={() => goTo('reservas')} />}
+        onOpenPartidos={() => goTo('partidos')}
+        onOpenReservas={() => goTo(tipoCuenta === 'dueno_cancha' ? 'mensajes' : 'reservas')} />}
       {currentView === 'explorar' && <Explore publicaciones={publicaciones} filter={filter} setFilter={setFilter}
         loading={postsLoading} error={postsError}
         userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete}
@@ -377,7 +378,7 @@ function Dashboard({
         <MisPartidos uid={user.uid} partidos={partidos} reservas={reservas} loading={partidosLoading}
           error={partidosError} onGoMatches={() => goTo('matches')} onFindCanchas={goToCanchas}
           onNotice={setLocalNotice} />}
-      {currentView === 'reservas' && (tipoCuenta !== 'jugador') &&
+      {currentView === 'reservas' && (tipoCuenta === 'equipo' || tipoCuenta === 'capitan') &&
         <MisReservas uid={user.uid} tipoCuenta={tipoCuenta} reservas={reservas}
           loading={reservasLoading} error={reservasError} onNotice={setLocalNotice}
           onFindCanchas={() => goToCanchas()} />}
@@ -401,8 +402,13 @@ function Dashboard({
         equipos={equipos} onOpenTeam={openEquipo} onFindCanchas={goToCanchas}
         partidos={partidos} onOpenPartidos={() => goTo('partidos')} onNotice={setLocalNotice} />}
       {currentView === 'mensajes' && (tipoCuenta === 'dueno_cancha'
-        ? <ConversacionesCanchas user={user} solicitudes={solicitudes} loading={requestsLoading}
-            error={requestsError} initialSelectedId={selectedChatId} />
+        ? <>
+            <MisReservas uid={user.uid} tipoCuenta={tipoCuenta} reservas={reservas}
+              loading={reservasLoading} error={reservasError} onNotice={setLocalNotice}
+              onFindCanchas={() => goToCanchas()} embedded />
+            <ConversacionesCanchas user={user} solicitudes={solicitudes} loading={requestsLoading}
+              error={requestsError} initialSelectedId={selectedChatId} />
+          </>
         : <Mensajes user={user} solicitudes={solicitudes} initialSelectedId={selectedChatId} />)}
       {currentView === 'perfil' && <Perfil user={user} perfil={perfil} loading={perfilLoading}
         error={perfilError} onNotice={(message) => setLocalNotice(message)} />}

@@ -231,7 +231,8 @@ function Dashboard({
         categoriaInicial={categoriaInicial} onCreated={afterPublish} />}
       {currentView === 'mis_publicaciones' && <MisPublicaciones uid={user.uid}
         publicaciones={publicaciones} solicitudes={solicitudes} loading={postsLoading}
-        error={postsError} onPublish={() => goTo('publicar')} onInterest={onInterest} onDelete={onDelete} />}
+        error={postsError} onPublish={() => goTo('publicar')} onInterest={onInterest} onDelete={onDelete}
+        tipoCuenta={tipoCuenta} />}
       {currentView === 'matches' && <Matches user={user} solicitudes={solicitudes} loading={requestsLoading}
         error={requestsError} onOpenChat={openChat} />}
       {currentView === 'mensajes' && (tipoCuenta === 'dueno_cancha'

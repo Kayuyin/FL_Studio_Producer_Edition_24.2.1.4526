@@ -737,6 +737,24 @@ service cloud.firestore {
         && exists(/databases/$(database)/documents/canchas/$(request.resource.data.canchaId))
         && coincide(request.resource.data);
 
+      // Una solicitud rechazada o cancelada puede repetirse por el mismo equipo,
+      // siempre que el partido siga confirmado y no tenga cancha asignada.
+      allow update: if loggedIn()
+        && resource.data.estado in ['rechazada','cancelada']
+        && request.auth.uid == resource.data.solicitanteUid
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['estado','creadoEn','respondidoEn','nota','precioHora'])
+        && request.resource.data.estado == 'pendiente'
+        && request.resource.data.creadoEn == request.time
+        && request.resource.data.respondidoEn == null
+        && request.resource.data.nota is string && request.resource.data.nota.size() <= 240
+        && exists(/databases/$(database)/documents/partidos/$(resource.data.partidoId))
+        && get(/databases/$(database)/documents/partidos/$(resource.data.partidoId)).data.estado == 'confirmado'
+        && get(/databases/$(database)/documents/partidos/$(resource.data.partidoId)).data.reservaConfirmadaId == ''
+        && exists(/databases/$(database)/documents/canchas/$(resource.data.canchaId))
+        && request.resource.data.precioHora ==
+          get(/databases/$(database)/documents/canchas/$(resource.data.canchaId)).data.precioHora;
+
       allow update: if loggedIn() && resource.data.estado == 'pendiente'
         && request.auth.uid == resource.data.duenoUid
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado','respondidoEn'])

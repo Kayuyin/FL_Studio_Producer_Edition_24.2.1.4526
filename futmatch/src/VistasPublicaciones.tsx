@@ -291,6 +291,9 @@ export function Publish({
   )
   const [equipoNombre, setEquipoNombre] = useState(equipoRegistrado)
   const [nombreCancha, setNombreCancha] = useState(canchaRegistrada)
+  const [direccionCancha, setDireccionCancha] = useState('')
+  const [precioHora, setPrecioHora] = useState('')
+  const [horariosCancha, setHorariosCancha] = useState('')
   const [titulo, setTitulo] = useState('')
   const [descripcion, setDescripcion] = useState('')
   const [regionCodigo, setRegionCodigo] = useState(regionPerfil)
@@ -323,6 +326,12 @@ export function Publish({
     }
     if (isOffer && (!cuentaConCancha(tipoCuenta) || nombreCancha.trim().length < 2)) {
       setError('Debes registrar el nombre de tu cancha en el perfil o en esta publicación.')
+      return
+    }
+    if (isOffer && (direccionCancha.trim().length < 5 || precioHora.trim() === ''
+      || !Number.isInteger(Number(precioHora)) || Number(precioHora) < 0 || Number(precioHora) > 1000000
+      || horariosCancha.length > 200)) {
+      setError('Indica la dirección y el precio por hora de la cancha. Si es gratuita, escribe 0.')
       return
     }
     if (isEquipo && !equipo) {
@@ -361,7 +370,8 @@ export function Publish({
     setSending(true)
     try {
       if (isOffer) {
-        await registrarCanchaYAnuncio(datos, region!.nombre, regionCodigo, comunaCodigo)
+        await registrarCanchaYAnuncio(datos, region!.nombre, regionCodigo, comunaCodigo,
+          direccionCancha, Number(precioHora), horariosCancha)
       } else {
         await crearPublicacion(datos)
       }
@@ -407,9 +417,26 @@ export function Publish({
             disabled={!!equipo} maxLength={80} minLength={2} required placeholder="Ej: Deportivo FutMatch" />
         </label>
       </>}
-      {isOffer && <label>Nombre de tu cancha
-        <input value={nombreCancha} onChange={(event) => setNombreCancha(event.target.value)} maxLength={100} minLength={2} required placeholder="Ej: Canchas del Parque" />
-      </label>}
+      {isOffer && <>
+        <label>Nombre de tu cancha
+          <input value={nombreCancha} onChange={(event) => setNombreCancha(event.target.value)} maxLength={100} minLength={2} required placeholder="Ej: Canchas del Parque" />
+        </label>
+        <label>Dirección del recinto
+          <input value={direccionCancha} onChange={(event) => setDireccionCancha(event.target.value)}
+            minLength={5} maxLength={160} required placeholder="Ej: Avenida La Florida 1200" />
+        </label>
+        <div className="form-columns">
+          <label>Precio por hora (CLP)
+            <input type="number" value={precioHora} onChange={(event) => setPrecioHora(event.target.value)}
+              required min={0} max={1000000} step={1} placeholder="Ej: 28000" />
+          </label>
+          <label>Horarios habituales (informativos)
+            <input value={horariosCancha} onChange={(event) => setHorariosCancha(event.target.value)}
+              maxLength={200} placeholder="Ej: Lunes a domingo, 17:00–23:00" />
+          </label>
+        </div>
+        <p className="muted">Las reservas se solicitan para partidos confirmados. El dueño acepta o rechaza cada horario; publicar la cancha no garantiza disponibilidad.</p>
+      </>}
       <label>Título de la publicación
         <input value={titulo} onChange={(event) => setTitulo(event.target.value)} maxLength={110} minLength={5} required placeholder={opciones[categoria].example} />
       </label>

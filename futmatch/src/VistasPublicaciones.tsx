@@ -349,6 +349,10 @@ export function Publish({
       setError('Para buscar un rival, indica la fecha y hora propuestas.')
       return
     }
+    if (categoria === 'equipo_busca_rival' && !/^([01]\d|2[0-3]):00$/.test(hora)) {
+      setError('Para reservar cancha, los partidos deben empezar a una hora exacta: 18:00, 19:00, 20:00, etc.')
+      return
+    }
     if (fecha && fecha < minDate) {
       setError('La fecha no puede ser anterior a hoy.')
       return
@@ -473,7 +477,8 @@ export function Publish({
           <input type="date" min={minDate} required={categoria === 'equipo_busca_rival'} value={fecha} onChange={(event) => setFecha(event.target.value)} />
         </label>
         <label>Hora {categoria === 'equipo_busca_rival' ? '' : '(opcional)'}
-          <input type="time" required={categoria === 'equipo_busca_rival'} value={hora} onChange={(event) => setHora(event.target.value)} />
+          <input type="time" step={categoria === 'equipo_busca_rival' ? 3600 : 60}
+            required={categoria === 'equipo_busca_rival'} value={hora} onChange={(event) => setHora(event.target.value)} />
         </label>
       </div>
       {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}

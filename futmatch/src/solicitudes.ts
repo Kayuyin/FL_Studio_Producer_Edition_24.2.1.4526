@@ -19,6 +19,7 @@ export type Solicitud = {
   nombreInteresado: string
   nombreAutor: string
   tituloPublicacion: string
+  incorporacionConfirmada: boolean
   estado: EstadoSolicitud
   creadoEn: Timestamp | null
   respondidoEn: Timestamp | null
@@ -43,6 +44,7 @@ function parseSolicitud(id: string, data: Record<string, unknown>): Solicitud {
     nombreInteresado: String(data.nombreInteresado ?? ''),
     nombreAutor: String(data.nombreAutor ?? ''),
     tituloPublicacion: String(data.tituloPublicacion ?? ''),
+    incorporacionConfirmada: data.incorporacionConfirmada === true,
     estado: data.estado as EstadoSolicitud,
     creadoEn: (data.creadoEn ?? null) as Timestamp | null,
     respondidoEn: (data.respondidoEn ?? null) as Timestamp | null,
@@ -101,6 +103,7 @@ export async function solicitarParticipacion(
     nombreInteresado: nombreInteresado.trim(),
     nombreAutor: post.autorNombre,
     tituloPublicacion: post.titulo,
+    incorporacionConfirmada: false,
     estado: 'pendiente',
     creadoEn: serverTimestamp(),
     respondidoEn: null,
@@ -146,4 +149,9 @@ export async function enviarMensaje(solicitudId: string, user: User, texto: stri
     texto: limpio,
     creadoEn: serverTimestamp(),
   })
+}
+
+/** La membresía es optativa: el jugador confirma antes de figurar en la plantilla pública. */
+export async function confirmarIncorporacion(solicitudId: string): Promise<void> {
+  await updateDoc(doc(db, 'solicitudes', solicitudId), { incorporacionConfirmada: true })
 }

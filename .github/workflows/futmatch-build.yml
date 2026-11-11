@@ -28,3 +28,21 @@ jobs:
           cache-dependency-path: futmatch/package-lock.json
       - run: npm ci
       - run: npm run build
+
+  firestore-rules:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: futmatch
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      # Levanta el emulador, que compila y valida firestore.rules.
+      # No requiere credenciales ni modifica el Firebase de producción.
+      - run: npx --yes firebase-tools@14.18.0 emulators:exec --project demo-futmatch --only firestore "node -e 'console.log(\"Reglas Firestore cargadas\")'"

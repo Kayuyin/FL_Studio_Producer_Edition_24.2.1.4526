@@ -2,7 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 import type { User } from 'firebase/auth'
 import { updateProfile } from 'firebase/auth'
-import { doc, updateDoc } from 'firebase/firestore'
+import { doc, serverTimestamp, setDoc, updateDoc } from 'firebase/firestore'
 import { REGIONES_CHILE, obtenerComuna, obtenerRegion } from './territorioChile'
 import { TIPOS_CUENTA, TIPOS_CUENTA_IDS, cuentaConCancha, cuentaConEquipo, tipoCuentaValido } from './tiposCuenta'
 import type { TipoCuenta } from './tiposCuenta'
@@ -77,7 +77,7 @@ function EditarPerfil({
     }
     setSaving(true)
     try {
-      await updateDoc(doc(db, 'usuarios', user.uid), {
+      const perfilActualizado = {
         nombre: nombreNormalizado,
         tipoCuenta,
         nombreEquipo: esEquipo ? nombreEquipo.trim() : '',
@@ -90,15 +90,40 @@ function EditarPerfil({
         nivel: esCancha ? '' : nivel,
         disponibilidad: esCancha ? '' : disponibilidad,
         bio: bio.trim(),
-      })
+      }
+      const usuarioRef = doc(db, 'usuarios', user.uid)
+      if (perfil) {
+        await updateDoc(usuarioRef, perfilActualizado)
+      } else {
+        // Cuentas antiguas creadas en Authentication sin documento en Firestore.
+        // Crear el perfil sin eliminar la cuenta ni modificar el correo de acceso.
+        if (!user.email) throw new Error('Tu cuenta no tiene un correo asociado.')
+        await setDoc(usuarioRef, {
+          ...perfilActualizado,
+          correo: user.email.trim().toLowerCase(),
+          creadoEn: serverTimestamp(),
+        })
+      }
       try {
         await updateProfile(user, { displayName: nombreNormalizado })
         onDone('Tu perfil se actualizó correctamente.')
       } catch {
         onDone('Los datos se guardaron en Firestore, pero no se pudo sincronizar el nombre de Authentication.')
       }
-    } catch {
-      setError('No se pudo guardar el perfil. Comprueba las reglas de Firestore y tu conexión.')
+    } catch (cause) {
+      const code = (cause as { code?: string }).code
+      if (code === 'permission-denied') {
+        setError('Firebase rechazó el guardado (permission-denied). Publica las reglas completas y actualizadas de Firestore; si ya lo hiciste, revisa los datos antiguos de tu cuenta.')
+      } else if (code === 'not-found') {
+        setError('No existe el documento del perfil en Firestore (not-found). Recarga la página e inténtalo otra vez.')
+      } else if (code === 'unavailable' || code === 'deadline-exceeded') {
+        setError(`No se pudo conectar con Firestore (${code}). Revisa Internet e inténtalo de nuevo.`)
+      } else if (code === 'unauthenticated') {
+        setError('La sesión expiró (unauthenticated). Vuelve a iniciar sesión.')
+      } else {
+        setError(`No se pudo guardar el perfil${code ? ` (${code})` : ''}. Si se repite, abre F12 → Consola para revisar el detalle.`)
+      }
+      console.error('Error al guardar perfil de FutMatch:', cause)
     } finally {
       setSaving(false)
     }
@@ -201,7 +226,7 @@ export function Perfil({
       <div><p className="eyebrow">MI PERFIL</p><h1>{name}</h1>
         <p>{TIPOS_CUENTA[tipo].label} · {user.email}</p>
       </div>
-      <button className="outline-button" type="button" disabled={loading}
+      <button className="outline-button" type="button" disabled={loading || !!error}
         onClick={() => setEditing((value) => !value)}>{editing ? 'Ver perfil' : 'Editar perfil'}</button>
     </div>
     {loading && <p className="posts-feedback" role="status">Cargando perfil…</p>}

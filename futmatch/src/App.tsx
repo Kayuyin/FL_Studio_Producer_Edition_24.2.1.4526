@@ -4,7 +4,13 @@ import { onAuthStateChanged, signOut } from 'firebase/auth'
 import { doc, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './firebase'
 import AuthScreen from './AuthScreen'
-import { escucharPublicaciones, eliminarPublicacion } from './publicaciones'
+import { escucharPublicaciones, eliminarPublicacion, obtenerPublicacionPorId } from './publicaciones'
+import { escucharEquipos } from './equipos'
+import type { EquipoRegistrado } from './equipos'
+import { escucharCanchas } from './canchas'
+import type { CanchaRegistrada } from './canchas'
+import { CatalogoEquipos, FichaEquipo } from './VistasEquipos'
+import { CatalogoCanchas } from './VistasCanchas'
 import type { Publicacion, Categoria } from './publicaciones'
 import { Explore, Publish } from './VistasPublicaciones'
 import { PanelPorRol, MisPublicaciones } from './PanelPorRol'
@@ -16,10 +22,13 @@ import type { PerfilUsuario } from './Perfil'
 import { TIPOS_CUENTA, tipoCuentaValido } from './tiposCuenta'
 import './App.css'
 
-type View = 'inicio' | 'explorar' | 'publicar' | 'mis_publicaciones' | 'matches' | 'mensajes' | 'perfil' | 'ayuda'
+type View = 'inicio' | 'explorar' | 'equipos' | 'mi_equipo' | 'canchas' | 'publicar' | 'mis_publicaciones' | 'matches' | 'mensajes' | 'perfil' | 'ayuda'
 const navItems: { id: View; label: string; icon: string }[] = [
   { id: 'inicio', label: 'Inicio', icon: '⌂' },
   { id: 'explorar', label: 'Explorar', icon: '⌕' },
+  { id: 'equipos', label: 'Equipos', icon: '⚽' },
+  { id: 'mi_equipo', label: 'Mi equipo', icon: '♟' },
+  { id: 'canchas', label: 'Canchas', icon: '▣' },
   { id: 'publicar', label: 'Publicar', icon: '+' },
   { id: 'mis_publicaciones', label: 'Mis publicaciones', icon: '▤' },
   { id: 'matches', label: 'Matches', icon: '♥' },
@@ -62,6 +71,14 @@ function Dashboard({
   const [filter, setFilter] = useState<Categoria | 'todos'>('todos')
   const [categoriaInicial, setCategoriaInicial] = useState<Categoria>('persona_busca_equipo')
   const [publicaciones, setPublicaciones] = useState<Publicacion[]>([])
+  const [equipos, setEquipos] = useState<EquipoRegistrado[]>([])
+  const [equiposLoading, setEquiposLoading] = useState(true)
+  const [equiposError, setEquiposError] = useState('')
+  const [selectedTeamId, setSelectedTeamId] = useState('')
+  const miEquipo = equipos.find((item) => item.ownerUid === user.uid) || null
+  const [canchas, setCanchas] = useState<CanchaRegistrada[]>([])
+  const [canchasLoading, setCanchasLoading] = useState(true)
+  const [canchasError, setCanchasError] = useState('')
   const [postsLoading, setPostsLoading] = useState(true)
   const [postsError, setPostsError] = useState('')
   const [solicitudes, setSolicitudes] = useState<Solicitud[]>([])
@@ -73,7 +90,8 @@ function Dashboard({
 
   function defaultCategoria(): Categoria {
     return tipoCuenta === 'dueno_cancha' ? 'ofrece_cancha'
-      : tipoCuenta === 'capitan' || tipoCuenta === 'equipo' ? 'equipo_busca_jugadores'
+      : tipoCuenta === 'capitan' ? 'equipo_busca_jugadores'
+      : tipoCuenta === 'equipo' ? 'equipo_busca_rival'
       : 'persona_busca_equipo'
   }
   const goTo = (nextView: View) => {
@@ -83,6 +101,7 @@ function Dashboard({
         : nextView === 'matches' ? 'mensajes' : nextView
       : nextView
     if (allowedView === 'publicar') setCategoriaInicial(defaultCategoria())
+    if (allowedView === 'equipos') setSelectedTeamId('')
     setView(allowedView)
     setMenuOpen(false)
   }
@@ -96,6 +115,12 @@ function Dashboard({
     setView('publicar')
     setMenuOpen(false)
   }
+  const openEquipo = (equipoId: string) => {
+    setSelectedTeamId(equipoId)
+    setView('equipos')
+    setMenuOpen(false)
+  }
+  const goToCanchas = () => goTo('canchas')
 
   useEffect(() => onSnapshot(
     doc(db, 'usuarios', user.uid),
@@ -115,6 +140,22 @@ function Dashboard({
     () => {
       setPostsLoading(false)
       setPostsError('No se pudieron cargar las publicaciones. Revisa tu conexión y las reglas de Firestore.')
+    },
+  ), [])
+
+  useEffect(() => escucharEquipos(
+    (items) => { setEquipos(items); setEquiposLoading(false); setEquiposError('') },
+    () => {
+      setEquiposLoading(false)
+      setEquiposError('No se pudieron cargar los equipos. Publica las reglas actualizadas de Firestore.')
+    },
+  ), [])
+
+  useEffect(() => escucharCanchas(
+    (items) => { setCanchas(items); setCanchasLoading(false); setCanchasError('') },
+    () => {
+      setCanchasLoading(false)
+      setCanchasError('No se pudieron cargar las canchas. Revisa las reglas de Firebase.')
     },
   ), [])
 
@@ -145,8 +186,19 @@ function Dashboard({
     if (post.autorUid !== user.uid) {
       throw new Error('Solo puedes eliminar tus propias publicaciones.')
     }
-    await eliminarPublicacion(post.id)
+    await eliminarPublicacion(post)
     setLocalNotice('Tu publicación se eliminó correctamente.')
+  }
+
+  async function onCanchaContact(cancha: CanchaRegistrada) {
+    if (tipoCuenta !== 'equipo' && tipoCuenta !== 'capitan') {
+      throw new Error('Solo las cuentas Equipo o Capitán pueden consultar canchas.')
+    }
+    const post = await obtenerPublicacionPorId(cancha.anuncioId)
+    if (!post || post.categoria !== 'ofrece_cancha' || post.canchaId !== cancha.id) {
+      throw new Error('Este anuncio ya no está disponible para contacto.')
+    }
+    await onInterest(post)
   }
 
   function openChat(id: string) {
@@ -166,7 +218,9 @@ function Dashboard({
     item.autorPublicacionUid === user.uid && item.estado === 'pendiente').length
   const displayedNav = tipoCuenta === 'dueno_cancha'
     ? navItems.filter((item) => ['inicio', 'publicar', 'mis_publicaciones', 'mensajes', 'perfil'].includes(item.id))
-    : navItems
+    : tipoCuenta === 'jugador'
+      ? navItems.filter((item) => !['mi_equipo', 'canchas'].includes(item.id))
+      : navItems
   const currentView = tipoCuenta === 'dueno_cancha' && (view === 'explorar' || view === 'matches') ? 'inicio' : view
   function labelFor(item: (typeof navItems)[number]): string {
     if (tipoCuenta !== 'dueno_cancha') {
@@ -218,23 +272,39 @@ function Dashboard({
       {currentView === 'inicio' && <PanelPorRol nombre={displayName} perfil={perfil} tipoCuenta={tipoCuenta}
         uid={user.uid} publicaciones={publicaciones} solicitudes={solicitudes}
         loading={postsLoading} error={postsError} onNavigate={goTo} onExplore={explorarCategoria}
-        onPublish={publicarCategoria} onInterest={onInterest} onDelete={onDelete} />}
+        onPublish={publicarCategoria} onInterest={onInterest} onDelete={onDelete}
+        onOpenEquipos={() => goTo('equipos')} onOpenCanchas={goToCanchas} />}
       {currentView === 'explorar' && <Explore publicaciones={publicaciones} filter={filter} setFilter={setFilter}
         loading={postsLoading} error={postsError}
         userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete}
         viewerTipoCuenta={tipoCuenta} />}
+      {currentView === 'equipos' && (selectedTeamId
+        ? <FichaEquipo key={selectedTeamId} equipo={equipos.find((team) => team.id === selectedTeamId) || null}
+            user={user} perfil={perfil} onNotice={setLocalNotice} onBack={() => goTo('equipos')}
+            onFindPlayers={() => explorarCategoria('persona_busca_equipo')} />
+        : <CatalogoEquipos equipos={equipos} loading={equiposLoading} error={equiposError}
+            onOpenTeam={openEquipo} onFindVacancies={() => explorarCategoria('equipo_busca_jugadores')} />)}
+      {currentView === 'mi_equipo' && (tipoCuenta === 'capitan' || tipoCuenta === 'equipo') && <FichaEquipo
+        key={miEquipo?.id || 'nuevo'} equipo={miEquipo} user={user} perfil={perfil}
+        onNotice={setLocalNotice} onBack={() => goTo('equipos')}
+        onFindPlayers={() => explorarCategoria('persona_busca_equipo')} />}
+      {currentView === 'canchas' && (tipoCuenta === 'capitan' || tipoCuenta === 'equipo') &&
+        <CatalogoCanchas canchas={canchas} loading={canchasLoading} error={canchasError}
+          solicitudes={solicitudes} userUid={user.uid} onContact={onCanchaContact} />}
       {currentView === 'publicar' && <Publish
         key={`${tipoCuenta}:${categoriaInicial}`}
         user={user} nombreAutor={displayName} tipoCuenta={tipoCuenta}
         equipoRegistrado={perfil?.nombreEquipo || ''} canchaRegistrada={perfil?.nombreCancha || ''}
         regionPerfil={perfil?.regionCodigo || ''} comunaPerfil={perfil?.comunaCodigo || ''}
-        categoriaInicial={categoriaInicial} onCreated={afterPublish} />}
+        categoriaInicial={categoriaInicial} equipo={miEquipo} onGoToEquipo={() => goTo('mi_equipo')}
+        onCreated={afterPublish} />}
       {currentView === 'mis_publicaciones' && <MisPublicaciones uid={user.uid}
         publicaciones={publicaciones} solicitudes={solicitudes} loading={postsLoading}
         error={postsError} onPublish={() => goTo('publicar')} onInterest={onInterest} onDelete={onDelete}
         tipoCuenta={tipoCuenta} />}
       {currentView === 'matches' && <Matches user={user} solicitudes={solicitudes} loading={requestsLoading}
-        error={requestsError} onOpenChat={openChat} />}
+        error={requestsError} onOpenChat={openChat} publicaciones={publicaciones} miEquipo={miEquipo}
+        equipos={equipos} onOpenTeam={openEquipo} onFindCanchas={goToCanchas} />}
       {currentView === 'mensajes' && (tipoCuenta === 'dueno_cancha'
         ? <ConversacionesCanchas user={user} solicitudes={solicitudes} loading={requestsLoading}
             error={requestsError} initialSelectedId={selectedChatId} />

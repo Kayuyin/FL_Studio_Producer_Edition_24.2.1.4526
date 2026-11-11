@@ -719,6 +719,16 @@ service cloud.firestore {
           && cancha.duenoUid != request.auth.uid;
       }
 
+      function turnoCreado(data) {
+        let turnoId = data.fecha + '_' + data.hora;
+        return existsAfter(/databases/$(database)/documents/canchas/$(data.canchaId)/turnos/$(turnoId))
+          && getAfter(/databases/$(database)/documents/canchas/$(data.canchaId)/turnos/$(turnoId)).data.reservaId == reservaId;
+      }
+      function turnoLiberado(data) {
+        let turnoId = data.fecha + '_' + data.hora;
+        return !existsAfter(/databases/$(database)/documents/canchas/$(data.canchaId)/turnos/$(turnoId));
+      }
+
       allow get, list: if interesado(resource.data);
       allow create: if loggedIn()
         && valida(request.resource.data)
@@ -739,8 +749,7 @@ service cloud.firestore {
         && request.resource.data.estado == 'confirmada'
         && request.resource.data.respondidoEn == request.time
         && getAfter(/databases/$(database)/documents/partidos/$(resource.data.partidoId)).data.reservaConfirmadaId == reservaId
-        && existsAfter(/databases/$(database)/documents/canchas/$(resource.data.canchaId)/turnos/$(resource.data.fecha + '_' + resource.data.hora))
-        && getAfter(/databases/$(database)/documents/canchas/$(resource.data.canchaId)/turnos/$(resource.data.fecha + '_' + resource.data.hora)).data.reservaId == reservaId;
+        && turnoCreado(resource.data);
 
       allow update: if interesado(resource.data)
         && resource.data.estado in ['pendiente','confirmada']
@@ -751,7 +760,7 @@ service cloud.firestore {
           resource.data.estado == 'pendiente'
           || (
             getAfter(/databases/$(database)/documents/partidos/$(resource.data.partidoId)).data.reservaConfirmadaId == ''
-            && !existsAfter(/databases/$(database)/documents/canchas/$(resource.data.canchaId)/turnos/$(resource.data.fecha + '_' + resource.data.hora))
+            && turnoLiberado(resource.data)
           )
         );
       allow delete: if false;

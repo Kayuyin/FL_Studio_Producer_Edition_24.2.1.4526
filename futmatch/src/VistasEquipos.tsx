@@ -5,27 +5,68 @@ import type { EquipoRegistrado, IntegranteEquipo } from './equipos'
 import { actualizarPosicion, crearEquipo, editarEquipo, escucharPlantilla,
   nombrarCapitan, nombrarCapitanResponsable, quitarIntegrante, ESCUDOS_EQUIPO, POSICIONES_EQUIPO } from './equipos'
 import type { PerfilUsuario } from './Perfil'
+import type { Publicacion } from './publicaciones'
+import type { Solicitud } from './solicitudes'
+import type { TipoCuenta } from './tiposCuenta'
 import { REGIONES_CHILE, obtenerRegion } from './territorioChile'
 
 export function CatalogoEquipos({
-  equipos, loading, error, onOpenTeam, onFindVacancies,
+  equipos, loading, error, onOpenTeam, onFindVacancies, onFindRivals,
+  viewerTipoCuenta, currentUid, miEquipo, publicaciones, solicitudes, onInterest,
 }: {
   equipos: EquipoRegistrado[]
   loading: boolean
   error: string
   onOpenTeam: (equipoId: string) => void
   onFindVacancies: () => void
+  onFindRivals: () => void
+  viewerTipoCuenta: TipoCuenta
+  currentUid: string
+  miEquipo: EquipoRegistrado | null
+  publicaciones: Publicacion[]
+  solicitudes: Solicitud[]
+  onInterest: (post: Publicacion) => Promise<void>
 }) {
   const [search, setSearch] = useState('')
+  const [contactando, setContactando] = useState('')
+  const [mensaje, setMensaje] = useState('')
+  const [errorContacto, setErrorContacto] = useState('')
+  const puedeRetar = viewerTipoCuenta === 'capitan'
   const filtrados = equipos.filter((item) =>
-    [item.nombre, item.comuna, item.capitanNombre, item.descripcion].some((field) =>
+    (!puedeRetar || item.ownerUid !== currentUid)
+    && [item.nombre, item.comuna, item.capitanNombre, item.descripcion].some((field) =>
       field.toLocaleLowerCase('es-CL').includes(search.trim().toLocaleLowerCase('es-CL'))))
+
+  async function contactarDesafio(post: Publicacion) {
+    setContactando(post.id)
+    setMensaje('')
+    setErrorContacto('')
+    try {
+      await onInterest(post)
+      setMensaje('Solicitud enviada al capitán rival. Podrás seguirla en Matches.')
+    } catch (cause) {
+      setErrorContacto((cause as Error).message || 'No se pudo enviar el desafío. Revisa tu equipo y las reglas.')
+    } finally { setContactando('') }
+  }
+
   return <div className="page">
     <div className="page-heading">
-      <div><p className="eyebrow">DIRECTORIO DE FUTMATCH</p><h1>Equipos</h1>
-        <p className="muted">Conoce los equipos, su capitán y los jugadores de su plantilla.</p></div>
-      <button type="button" className="secondary-button" onClick={onFindVacancies}>Buscar vacantes</button>
+      <div>
+        <p className="eyebrow">DIRECTORIO DE FUTMATCH</p>
+        <h1>{puedeRetar ? 'Buscar equipos rivales' : 'Buscar equipos'}</h1>
+        <p className="muted">{puedeRetar
+          ? 'Conoce otros equipos, revisa sus jugadores y contacta a un capitán si tiene un desafío disponible.'
+          : 'Conoce los equipos, su capitán y los jugadores de su plantilla. Para ingresar, postula a una vacante publicada.'}</p>
+      </div>
+      <button type="button" className="secondary-button"
+        onClick={puedeRetar ? onFindRivals : onFindVacancies}>
+        {puedeRetar ? 'Ver desafíos publicados' : 'Buscar vacantes'}
+      </button>
     </div>
+    {puedeRetar && !miEquipo &&
+      <p role="status" className="posts-feedback">Primero registra tu equipo en «Mi equipo» para poder contactar a un rival.</p>}
+    {mensaje && <p role="status" className="posts-feedback">{mensaje}</p>}
+    {errorContacto && <p role="alert" className="posts-feedback posts-error">{errorContacto}</p>}
     <div className="filter-row">
       <label className="search-box">⌕ <input aria-label="Buscar equipos" placeholder="Buscar equipo, comuna o capitán..."
         value={search} onChange={(event) => setSearch(event.target.value)} /></label>
@@ -34,15 +75,34 @@ export function CatalogoEquipos({
     {loading && <p className="posts-feedback" role="status">Cargando equipos…</p>}
     {!loading && !error && (filtrados.length
       ? <div className="post-grid team-grid">
-        {filtrados.map((team) => <article key={team.id} className="team-card">
-          <div className="team-shield">{team.escudo}</div>
-          <h2>{team.nombre}</h2>
-          <p className="muted">{team.comuna}{team.region ? ` · ${team.region}` : ''}</p>
-          <p className="team-captain"><strong>Capitán:</strong> {team.capitanNombre || 'Por asignar'}</p>
-          <p className="muted">{team.modalidad} · {team.nivel}</p>
-          <p className="team-description">{team.descripcion || 'Equipo de la comunidad FutMatch.'}</p>
-          <button type="button" className="secondary-button" onClick={() => onOpenTeam(team.id)}>Ver plantilla y capitán →</button>
-        </article>)}
+        {filtrados.map((team) => {
+          const desafio = publicaciones.find(post =>
+            post.categoria === 'equipo_busca_rival' && post.autorUid === team.ownerUid)
+          const solicitud = desafio && solicitudes.find(s =>
+            s.publicacionId === desafio.id && s.interesadoUid === currentUid)
+          return <article key={team.id} className="team-card">
+            <div className="team-shield">{team.escudo}</div>
+            <h2>{team.nombre}</h2>
+            <p className="muted">{team.comuna}{team.region ? ` · ${team.region}` : ''}</p>
+            <p className="team-captain"><strong>Capitán:</strong> {team.capitanNombre || 'Por asignar'}</p>
+            <p className="muted">{team.modalidad} · {team.nivel}</p>
+            <p className="team-description">{team.descripcion || 'Equipo de la comunidad FutMatch.'}</p>
+            <button type="button" className="secondary-button" onClick={() => onOpenTeam(team.id)}>
+              Ver plantilla y capitán
+            </button>
+            {puedeRetar && desafio &&
+              <button type="button" className="primary-button"
+                disabled={!miEquipo || !!contactando || !!solicitud}
+                onClick={() => { void contactarDesafio(desafio) }}>
+                {contactando === desafio.id ? 'Enviando…' : solicitud
+                  ? solicitud.estado === 'aceptada' ? 'Contacto aceptado'
+                    : solicitud.estado === 'rechazada' ? 'Solicitud rechazada' : 'Solicitud enviada'
+                  : 'Contactar para jugar'}
+              </button>}
+            {puedeRetar && !desafio &&
+              <p className="muted">Este equipo aún no publicó un desafío de partido.</p>}
+          </article>
+        })}
       </div>
       : <p className="posts-feedback">Todavía no hay equipos registrados con esa búsqueda.</p>)}
   </div>

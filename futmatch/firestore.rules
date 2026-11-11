@@ -465,6 +465,19 @@ service cloud.firestore {
             && get(/databases/$(database)/documents/publicaciones/$(resource.data.publicacionId)).data.categoria == 'persona_busca_equipo')
         );
 
+      // El jugador también puede revocar el consentimiento de plantilla.
+      allow update: if isSignedIn()
+        && resource.data.estado == 'aceptada'
+        && resource.data.get('incorporacionConfirmada', false) == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['incorporacionConfirmada'])
+        && request.resource.data.incorporacionConfirmada == false
+        && (
+          (resource.data.tipoSolicitud == 'postulacion'
+            && request.auth.uid == resource.data.interesadoUid)
+          || (resource.data.tipoSolicitud == 'contacto'
+            && request.auth.uid == resource.data.autorPublicacionUid)
+        );
+
       allow delete: if false;
 
       match /mensajes/{mensajeId} {

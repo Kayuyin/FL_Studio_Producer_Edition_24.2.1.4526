@@ -87,8 +87,8 @@ export async function editarEquipo(equipoId: string, nombre: string, descripcion
 }
 
 export async function incorporarJugador(equipoId: string, solicitud: Solicitud): Promise<void> {
-  if (solicitud.estado !== 'aceptada') {
-    throw new Error('Primero deben aceptar la postulación o el contacto del jugador.')
+  if (solicitud.estado !== 'aceptada' || !solicitud.incorporacionConfirmada) {
+    throw new Error('Se requiere el contacto aceptado y la confirmación del jugador para integrarlo.')
   }
   const porPostulacion = solicitud.tipoSolicitud === 'postulacion'
   const uid = porPostulacion ? solicitud.interesadoUid : solicitud.autorPublicacionUid

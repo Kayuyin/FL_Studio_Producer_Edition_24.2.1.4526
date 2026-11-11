@@ -1,6 +1,6 @@
 import {
   collection, doc, limit, onSnapshot, orderBy,
-  query, serverTimestamp, writeBatch,
+  query, serverTimestamp, updateDoc, writeBatch,
 } from 'firebase/firestore'
 import type { Timestamp, Unsubscribe } from 'firebase/firestore'
 import { db } from './firebase'
@@ -89,4 +89,20 @@ export async function registrarCanchaYAnuncio(
     creadoEn: serverTimestamp(),
   })
   await batch.commit()
+}
+
+/** El propietario puede mantener la ficha comercial sin modificar el anuncio original. */
+export async function editarCancha(
+  canchaId: string, direccion: string, precioHora: number, informacionHorarios: string,
+): Promise<void> {
+  if (direccion.trim().length < 5 || direccion.trim().length > 160
+    || !Number.isInteger(precioHora) || precioHora < 0 || precioHora > 1000000
+    || informacionHorarios.trim().length > 200) {
+    throw new Error('La dirección, el precio o los horarios no son válidos.')
+  }
+  await updateDoc(doc(db, 'canchas', canchaId), {
+    direccion: direccion.trim(),
+    precioHora,
+    informacionHorarios: informacionHorarios.trim(),
+  })
 }

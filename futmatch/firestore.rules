@@ -411,9 +411,7 @@ service cloud.firestore {
           && request.resource.data.duenoUid ==
             get(/databases/$(database)/documents/canchas/$(canchaId)).data.duenoUid
           && turnoId == request.resource.data.fecha + '_' + request.resource.data.hora
-          && request.resource.data.hora.matches('^([01][0-9]|2[0-3]):00
-
-)
+          && request.resource.data.hora.matches('^([01][0-9]|2[0-3]):00$')
           && request.resource.data.creadoEn == request.time
           && existsAfter(/databases/$(database)/documents/reservas/$(request.resource.data.reservaId))
           && getAfter(/databases/$(database)/documents/reservas/$(request.resource.data.reservaId)).data.estado == 'confirmada'

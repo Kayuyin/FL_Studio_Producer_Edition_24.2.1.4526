@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import type { User } from 'firebase/auth'
 import type { EquipoRegistrado, IntegranteEquipo } from './equipos'
 import { actualizarPosicion, crearEquipo, editarEquipo, escucharPlantilla,
-  nombrarCapitan, quitarIntegrante, ESCUDOS_EQUIPO, POSICIONES_EQUIPO } from './equipos'
+  nombrarCapitan, nombrarCapitanResponsable, quitarIntegrante, ESCUDOS_EQUIPO, POSICIONES_EQUIPO } from './equipos'
 import type { PerfilUsuario } from './Perfil'
 
 export function CatalogoEquipos({
@@ -121,12 +121,24 @@ export function FichaEquipo({
     } finally { setSaving(false) }
   }
 
+  async function retomarCapitania() {
+    if (!equipo || !isManager || !perfil?.nombre) return
+    setSaving(true)
+    setError('')
+    try {
+      await nombrarCapitanResponsable(equipo.id, perfil.nombre)
+      onNotice('Volviste a figurar como capitán del equipo.')
+    } catch {
+      setError('No se pudo recuperar la capitanía. Revisa tu nombre de Perfil y las reglas.')
+    } finally { setSaving(false) }
+  }
+
   async function remove(member: IntegranteEquipo) {
     if (!equipo || (!isManager && member.uid !== user.uid)) return
     setSaving(true)
     setError('')
     try {
-      await quitarIntegrante(equipo.id, member.uid, !isManager ? member.solicitudId : undefined)
+      await quitarIntegrante(equipo.id, member.uid, member.solicitudId)
       onNotice(!isManager
         ? 'Saliste del equipo y retiraste tu consentimiento de la plantilla.'
         : 'Jugador retirado de la plantilla.')
@@ -197,6 +209,10 @@ export function FichaEquipo({
           <small>{captainInRoster ? 'Jugador de la plantilla · Capitán' : 'Responsable del equipo · Capitán'}</small>
         </div>
       </div>
+      {isManager && equipo.capitanUid !== user.uid && <button type="button" className="secondary-button"
+        disabled={saving} onClick={() => { void retomarCapitania() }}>
+        Volver a ser capitán
+      </button>}
     </section>
     <section className="team-roster-card">
       <h2>Plantilla <span className="request-count">{mostrados.length + (equipo.capitanUid ? 1 : 0)}</span></h2>

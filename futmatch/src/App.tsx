@@ -143,9 +143,16 @@ function Dashboard({
     setPublicaciones([])
     return escucharPublicaciones(
       (items) => { setPublicaciones(items); setPostsLoading(false); setPostsError('') },
-      () => {
+      (error) => {
         setPostsLoading(false)
-        setPostsError('No se pudieron cargar las publicaciones. Revisa tu conexión y las reglas de Firestore.')
+        const codigo = (error as Error & { code?: string }).code
+        setPostsError(codigo === 'permission-denied'
+          ? 'Firestore rechazó la carga de publicaciones (permission-denied). Comprueba las reglas publicadas y el rol de tu cuenta.'
+          : codigo === 'failed-precondition'
+            ? 'Firestore necesita un índice o una condición de consulta (failed-precondition). Abre F12 → Console para ver el detalle y el enlace del índice.'
+            : codigo === 'unavailable' || codigo === 'deadline-exceeded'
+              ? `No se pudo conectar con Firestore (${codigo}). Revisa tu conexión e inténtalo de nuevo.`
+              : `No se pudieron cargar las publicaciones${codigo ? ` (${codigo})` : ''}. Abre F12 → Console para revisar el motivo.`)
       },
       { uid: user.uid, tipoCuenta },
     )

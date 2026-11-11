@@ -94,7 +94,10 @@ export function escucharPublicaciones(
     return onSnapshot(
       query(publicacionesRef, orderBy('creadoEn', 'desc'), limit(100)),
       (snapshot) => onData(parsePublicaciones(snapshot)),
-      onError,
+      (error) => {
+        console.error('[FutMatch] Firestore publicaciones: consulta general:', error.code, error.message)
+        onError(error)
+      },
     )
   }
 
@@ -120,7 +123,10 @@ export function escucharPublicaciones(
       publicasCargadas = true
       emitir()
     },
-    onError,
+    (error) => {
+      console.error('[FutMatch] Firestore publicaciones: consulta categorías permitidas:', error.code, error.message)
+      onError(error)
+    },
   )
   const stopPropias = onSnapshot(
     query(publicacionesRef, where('autorUid', '==', cuenta.uid), limit(100)),
@@ -129,7 +135,10 @@ export function escucharPublicaciones(
       propiasCargadas = true
       emitir()
     },
-    onError,
+    (error) => {
+      console.error('[FutMatch] Firestore publicaciones: consulta anuncios propios:', error.code, error.message)
+      onError(error)
+    },
   )
   return () => { stopPublicas(); stopPropias() }
 }

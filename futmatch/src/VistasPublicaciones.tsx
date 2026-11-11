@@ -3,7 +3,7 @@ import type { FormEvent } from 'react'
 import type { User } from 'firebase/auth'
 import { categorias, crearPublicacion } from './publicaciones'
 import { REGIONES_CHILE, obtenerComuna, obtenerRegion } from './territorioChile'
-import { cuentaConCancha, cuentaConEquipo } from './tiposCuenta'
+import { cuentaConCancha } from './tiposCuenta'
 import type { TipoCuenta } from './tiposCuenta'
 import type { Categoria, Nivel, NuevaPublicacion, Publicacion, TipoFutbol } from './publicaciones'
 import type { Solicitud } from './solicitudes'
@@ -54,7 +54,7 @@ function EstadoListado({ loading, error }: { loading: boolean; error: string }) 
   return <p className="posts-feedback">Todavía no hay publicaciones en esta categoría. ¡Sé el primero en publicar!</p>
 }
 
-function PublicacionCard({
+export function PublicacionCard({
   post, userUid, solicitudes, onInterest, onDelete,
 }: {
   post: Publicacion

@@ -84,8 +84,13 @@ export async function programarPartido(
     || (uid !== local.id && uid !== visitante.id)) {
     throw new Error('Se necesita un match aceptado entre dos equipos registrados.')
   }
-  if (!publicacion.fecha || !publicacion.hora || publicacion.fecha < new Date().toLocaleDateString('en-CA')) {
+  const hoy = new Date()
+  const fechaHoy = `${hoy.getFullYear()}-${String(hoy.getMonth() + 1).padStart(2, '0')}-${String(hoy.getDate()).padStart(2, '0')}`
+  if (!publicacion.fecha || !publicacion.hora || publicacion.fecha < fechaHoy) {
     throw new Error('La fecha del desafío ya pasó. Publica una nueva propuesta de partido.')
+  }
+  if (!/^([01]\d|2[0-3]):00$/.test(publicacion.hora)) {
+    throw new Error('Los partidos que requieran cancha se programan para horas completas (ejemplo: 19:00). Publica un nuevo desafío.')
   }
   await setDoc(doc(db, 'partidos', solicitud.id), {
     solicitudId: solicitud.id,

@@ -16,7 +16,7 @@ type Acceso = {
 
 export function PanelPorRol({
   nombre, perfil, tipoCuenta, uid, publicaciones, solicitudes, loading, error,
-  onNavigate, onExplore, onPublish, onInterest, onDelete, onOpenEquipos, onOpenCanchas,
+  onNavigate, onExplore, onPublish, onInterest, onDelete, onOpenEquipos, onOpenCanchas, onOpenPartidos, onOpenReservas,
 }: {
   nombre: string
   perfil: PerfilUsuario | null
@@ -29,6 +29,8 @@ export function PanelPorRol({
   onNavigate: (vista: Seccion) => void
   onOpenEquipos: () => void
   onOpenCanchas: () => void
+  onOpenPartidos: () => void
+  onOpenReservas: () => void
   onExplore: (categoria: Categoria) => void
   onPublish: (categoria: Categoria) => void
   onInterest: (post: Publicacion) => Promise<void>
@@ -65,6 +67,8 @@ export function PanelPorRol({
       { texto: 'Mi equipo', descripcion: 'Ver capitán y plantilla', icono: '⚽', accion: () => onNavigate('mi_equipo') },
       { texto: 'Buscar cancha', descripcion: 'Revisa recintos disponibles', icono: '▣', accion: onOpenCanchas },
       { texto: 'Explorar equipos', descripcion: 'Ver jugadores de otros clubes', icono: '⌕', accion: onOpenEquipos },
+      { texto: 'Mis partidos', descripcion: 'Confirmar partidos y organizar encuentros', icono: '⚔', accion: onOpenPartidos },
+      { texto: 'Reservas', descripcion: 'Ver solicitudes de canchas', icono: '▣', accion: onOpenReservas },
     ]
   } else if (tipoCuenta === 'equipo') {
     titulo = 'Panel de tu equipo'
@@ -79,6 +83,8 @@ export function PanelPorRol({
       { texto: 'Mi equipo', descripcion: 'Plantilla y capitán', icono: '⚽', accion: () => onNavigate('mi_equipo') },
       { texto: 'Buscar cancha', descripcion: 'Contacta a dueños de canchas', icono: '▣', accion: onOpenCanchas },
       { texto: 'Explorar equipos', descripcion: 'Conoce rivales y plantillas', icono: '⌕', accion: onOpenEquipos },
+      { texto: 'Mis partidos', descripcion: 'Confirmar fechas y horarios', icono: '⚔', accion: onOpenPartidos },
+      { texto: 'Reservas', descripcion: 'Control de solicitudes de cancha', icono: '▣', accion: onOpenReservas },
     ]
   } else if (tipoCuenta === 'dueno_cancha') {
     titulo = 'Panel de mis canchas'
@@ -89,6 +95,7 @@ export function PanelPorRol({
       { texto: 'Anunciar cancha', descripcion: 'Publica una oferta de tu recinto', icono: '+', accion: () => onPublish('ofrece_cancha') },
       { texto: 'Mis canchas', descripcion: 'Revisa o elimina anuncios propios', icono: '▤', accion: () => onNavigate('mis_publicaciones') },
       { texto: 'Conversaciones', descripcion: 'Acepta consultas y conversa por chat', icono: '▱', accion: () => onNavigate('mensajes') },
+      { texto: 'Solicitudes de reserva', descripcion: 'Aceptar o rechazar horarios solicitados', icono: '▣', accion: onOpenReservas },
       { texto: 'Editar perfil', descripcion: 'Actualiza los datos de tu cancha', icono: '◉', accion: () => onNavigate('perfil') },
     ]
   }

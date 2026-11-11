@@ -10,7 +10,7 @@ import { Explore, Publish } from './VistasPublicaciones'
 import { PanelPorRol, MisPublicaciones } from './PanelPorRol'
 import { observarSolicitudes, solicitarParticipacion } from './solicitudes'
 import type { Solicitud } from './solicitudes'
-import { Matches, Mensajes } from './Conexiones'
+import { Matches, Mensajes, ConversacionesCanchas } from './Conexiones'
 import { Perfil } from './Perfil'
 import type { PerfilUsuario } from './Perfil'
 import { TIPOS_CUENTA, tipoCuentaValido } from './tiposCuenta'
@@ -77,16 +77,22 @@ function Dashboard({
       : 'persona_busca_equipo'
   }
   const goTo = (nextView: View) => {
-    if (nextView === 'publicar') setCategoriaInicial(defaultCategoria())
-    setView(nextView)
+    // El dueño de cancha no navega por anuncios ajenos ni envía solicitudes.
+    const allowedView = tipoCuenta === 'dueno_cancha'
+      ? nextView === 'explorar' ? 'inicio'
+        : nextView === 'matches' ? 'mensajes' : nextView
+      : nextView
+    if (allowedView === 'publicar') setCategoriaInicial(defaultCategoria())
+    setView(allowedView)
     setMenuOpen(false)
   }
   const explorarCategoria = (categoria: Categoria) => {
+    if (tipoCuenta === 'dueno_cancha') { goTo('inicio'); return }
     setFilter(categoria)
     goTo('explorar')
   }
   const publicarCategoria = (categoria: Categoria) => {
-    setCategoriaInicial(categoria)
+    setCategoriaInicial(tipoCuenta === 'dueno_cancha' ? 'ofrece_cancha' : categoria)
     setView('publicar')
     setMenuOpen(false)
   }
@@ -122,6 +128,9 @@ function Dashboard({
   ), [user.uid])
 
   async function onInterest(post: Publicacion) {
+    if (tipoCuenta === 'dueno_cancha') {
+      throw new Error('Las cuentas de dueño de cancha solo reciben solicitudes sobre sus anuncios.')
+    }
     if (tipoCuenta === 'jugador'
       && (post.categoria !== 'equipo_busca_jugadores' || post.autorTipoCuenta !== 'capitan')) {
       throw new Error('Un jugador solo puede postular a vacantes publicadas por capitanes.')
@@ -147,12 +156,27 @@ function Dashboard({
 
   function afterPublish(category: Categoria) {
     setFilter(category)
-    setLocalNotice('Tu publicación se guardó correctamente. Ya aparece en Explorar.')
-    goTo('explorar')
+    setLocalNotice(tipoCuenta === 'dueno_cancha'
+      ? 'Tu cancha fue anunciada correctamente. Ya aparece en Mis canchas.'
+      : 'Tu publicación se guardó correctamente. Ya aparece en Explorar.')
+    goTo(tipoCuenta === 'dueno_cancha' ? 'mis_publicaciones' : 'explorar')
   }
 
   const newRequests = solicitudes.filter((item) =>
     item.autorPublicacionUid === user.uid && item.estado === 'pendiente').length
+  const displayedNav = tipoCuenta === 'dueno_cancha'
+    ? navItems.filter((item) => ['inicio', 'publicar', 'mis_publicaciones', 'mensajes', 'perfil'].includes(item.id))
+    : navItems
+  const currentView = tipoCuenta === 'dueno_cancha' && (view === 'explorar' || view === 'matches') ? 'inicio' : view
+  function labelFor(item: (typeof navItems)[number]): string {
+    if (tipoCuenta !== 'dueno_cancha') {
+      return item.id === 'publicar' && tipoCuenta === 'jugador' ? 'Buscar equipo' : item.label
+    }
+    if (item.id === 'publicar') return 'Anunciar cancha'
+    if (item.id === 'mis_publicaciones') return 'Mis canchas'
+    if (item.id === 'mensajes') return 'Conversaciones'
+    return item.label
+  }
 
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'is-open' : ''}`}>
@@ -163,14 +187,12 @@ function Dashboard({
         <button type="button" aria-label="Editar mi perfil" title="Editar mi perfil" onClick={() => goTo('perfil')}>•••</button>
       </div>
       <nav className="main-nav" aria-label="Navegación principal">
-        {navItems.map((item) => <button
-          className={view === item.id ? 'active' : ''} type="button" key={item.id}
+        {displayedNav.map((item) => <button
+          className={currentView === item.id ? 'active' : ''} type="button" key={item.id}
           onClick={() => goTo(item.id)}
-        ><span className="nav-icon">{item.icon}</span>{item.id === 'publicar'
-            ? tipoCuenta === 'dueno_cancha' ? 'Anunciar cancha'
-              : tipoCuenta === 'jugador' ? 'Buscar equipo' : item.label
-            : item.label}
-          {item.id === 'matches' && newRequests > 0 && <span className="nav-badge">{newRequests}</span>}
+        ><span className="nav-icon">{item.icon}</span>{labelFor(item)}
+          {(item.id === 'matches' || (tipoCuenta === 'dueno_cancha' && item.id === 'mensajes'))
+            && newRequests > 0 && <span className="nav-badge">{newRequests}</span>}
         </button>)}
       </nav>
       <div className="sidebar-bottom">
@@ -193,37 +215,43 @@ function Dashboard({
         <span>{localNotice || notice}</span>
         <button type="button" onClick={() => { setLocalNotice(''); onDismissNotice() }} aria-label="Cerrar aviso">×</button>
       </div>}
-      {view === 'inicio' && <PanelPorRol nombre={displayName} perfil={perfil} tipoCuenta={tipoCuenta}
+      {currentView === 'inicio' && <PanelPorRol nombre={displayName} perfil={perfil} tipoCuenta={tipoCuenta}
         uid={user.uid} publicaciones={publicaciones} solicitudes={solicitudes}
         loading={postsLoading} error={postsError} onNavigate={goTo} onExplore={explorarCategoria}
         onPublish={publicarCategoria} onInterest={onInterest} onDelete={onDelete} />}
-      {view === 'explorar' && <Explore publicaciones={publicaciones} filter={filter} setFilter={setFilter}
+      {currentView === 'explorar' && <Explore publicaciones={publicaciones} filter={filter} setFilter={setFilter}
         loading={postsLoading} error={postsError}
         userUid={user.uid} solicitudes={solicitudes} onInterest={onInterest} onDelete={onDelete}
         viewerTipoCuenta={tipoCuenta} />}
-      {view === 'publicar' && <Publish
+      {currentView === 'publicar' && <Publish
         key={`${tipoCuenta}:${categoriaInicial}`}
         user={user} nombreAutor={displayName} tipoCuenta={tipoCuenta}
         equipoRegistrado={perfil?.nombreEquipo || ''} canchaRegistrada={perfil?.nombreCancha || ''}
         regionPerfil={perfil?.regionCodigo || ''} comunaPerfil={perfil?.comunaCodigo || ''}
         categoriaInicial={categoriaInicial} onCreated={afterPublish} />}
-      {view === 'mis_publicaciones' && <MisPublicaciones uid={user.uid}
+      {currentView === 'mis_publicaciones' && <MisPublicaciones uid={user.uid}
         publicaciones={publicaciones} solicitudes={solicitudes} loading={postsLoading}
         error={postsError} onPublish={() => goTo('publicar')} onInterest={onInterest} onDelete={onDelete} />}
-      {view === 'matches' && <Matches user={user} solicitudes={solicitudes} loading={requestsLoading}
+      {currentView === 'matches' && <Matches user={user} solicitudes={solicitudes} loading={requestsLoading}
         error={requestsError} onOpenChat={openChat} />}
-      {view === 'mensajes' && <Mensajes user={user} solicitudes={solicitudes} initialSelectedId={selectedChatId} />}
-      {view === 'perfil' && <Perfil user={user} perfil={perfil} loading={perfilLoading}
+      {currentView === 'mensajes' && (tipoCuenta === 'dueno_cancha'
+        ? <ConversacionesCanchas user={user} solicitudes={solicitudes} loading={requestsLoading}
+            error={requestsError} initialSelectedId={selectedChatId} />
+        : <Mensajes user={user} solicitudes={solicitudes} initialSelectedId={selectedChatId} />)}
+      {currentView === 'perfil' && <Perfil user={user} perfil={perfil} loading={perfilLoading}
         error={perfilError} onNotice={(message) => setLocalNotice(message)} />}
-      {view === 'ayuda' && <SimplePage icon="?" title="Centro de ayuda"
-        text={tipoCuenta === 'jugador'
+      {currentView === 'ayuda' && <SimplePage icon="?" title="Centro de ayuda"
+        text={tipoCuenta === 'dueno_cancha'
+          ? 'Publica un anuncio desde Anunciar cancha. Cuando una persona se interese, podrás aceptar su solicitud en Conversaciones y hablar con ella. No hay reservas ni pagos automáticos.'
+          : tipoCuenta === 'jugador'
           ? 'En Explorar verás las vacantes publicadas por capitanes. Pulsa «Postular al equipo». El capitán recibirá tu postulación en Matches y, si la acepta, podrán conversar por Mensajes. También puedes publicar «Busco equipo».'
           : 'En Explorar puedes contactar a otros usuarios mediante «Me interesa». El autor recibe la solicitud en Matches. Una vez aceptada, se habilita el chat de Mensajes.'}
-        button="Explorar publicaciones" onClick={() => goTo('explorar')} />}
+        button={tipoCuenta === 'dueno_cancha' ? 'Anunciar cancha' : 'Explorar publicaciones'}
+        onClick={() => goTo(tipoCuenta === 'dueno_cancha' ? 'publicar' : 'explorar')} />}
     </main>
     <nav className="bottom-nav">
-      {navItems.filter((item) => item.id !== 'mis_publicaciones').slice(0, 5).map((item) => <button className={view === item.id ? 'active' : ''}
-        type="button" key={item.id} onClick={() => goTo(item.id)}><span>{item.icon}</span>{item.id === 'publicar' && tipoCuenta === 'jugador' ? 'Busco equipo' : item.label}</button>)}
+      {displayedNav.filter((item) => item.id !== 'mis_publicaciones').slice(0, 5).map((item) => <button className={currentView === item.id ? 'active' : ''}
+        type="button" key={item.id} onClick={() => goTo(item.id)}><span>{item.icon}</span>{labelFor(item)}</button>)}
     </nav>
   </div>
 }

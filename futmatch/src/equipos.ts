@@ -1,7 +1,7 @@
 import type { User } from 'firebase/auth'
 import {
   collection, deleteDoc, doc, limit, onSnapshot, orderBy, query,
-  serverTimestamp, setDoc, updateDoc,
+  serverTimestamp, setDoc, updateDoc, writeBatch,
 } from 'firebase/firestore'
 import type { Timestamp, Unsubscribe } from 'firebase/firestore'
 import { db } from './firebase'
@@ -108,6 +108,18 @@ export async function nombrarCapitan(equipoId: string, integrante: IntegranteEqu
   })
 }
 
-export async function quitarIntegrante(equipoId: string, uid: string): Promise<void> {
-  await deleteDoc(doc(db, 'equipos', equipoId, 'integrantes', uid))
+export async function quitarIntegrante(
+  equipoId: string, uid: string, solicitudId?: string,
+): Promise<void> {
+  const memberRef = doc(db, 'equipos', equipoId, 'integrantes', uid)
+  if (!solicitudId) {
+    await deleteDoc(memberRef)
+    return
+  }
+  // Salir implica retirar el consentimiento usado para aparecer públicamente.
+  // Ambas modificaciones se confirman juntas o ninguna se realiza.
+  const batch = writeBatch(db)
+  batch.update(doc(db, 'solicitudes', solicitudId), { incorporacionConfirmada: false })
+  batch.delete(memberRef)
+  await batch.commit()
 }

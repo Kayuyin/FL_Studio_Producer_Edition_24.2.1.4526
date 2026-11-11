@@ -105,8 +105,11 @@ export function CatalogoCanchas({
             {item.informacionHorarios && <p className="muted"><strong>Horarios:</strong> {item.informacionHorarios}</p>}
             <p className="team-description">{item.descripcion}</p>
             {partidoElegido && <button type="button" className="primary-button"
-              disabled={!!busyId || propia || !!reserva} onClick={() => { void perform(item, true) }}>
-              {busyId === item.id ? 'Enviando…' : reserva ? `Reserva: ${reserva.estado}`
+              disabled={!!busyId || propia || !!(reserva && !['rechazada','cancelada'].includes(reserva.estado))}
+              onClick={() => { void perform(item, true) }}>
+              {busyId === item.id ? 'Enviando…'
+                : reserva && ['rechazada','cancelada'].includes(reserva.estado) ? 'Volver a solicitar reserva'
+                : reserva ? `Reserva: ${reserva.estado}`
                 : 'Solicitar reserva para este partido'}
             </button>}
             <button type="button" className="secondary-button"

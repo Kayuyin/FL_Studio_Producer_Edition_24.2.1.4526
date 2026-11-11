@@ -88,8 +88,11 @@ export function PublicacionCard({
     setError('')
     try {
       await onDelete(post)
-    } catch {
-      setError('No se pudo eliminar la publicación. Revisa tu conexión y los permisos de Firestore.')
+    } catch (cause) {
+      const code = (cause as { code?: string }).code
+      setError(code === 'permission-denied'
+        ? 'Firestore no autorizó eliminar esta publicación.'
+        : (cause as Error).message || 'No se pudo eliminar la publicación.')
       setDeleting(false)
       setConfirmDelete(false)
     }

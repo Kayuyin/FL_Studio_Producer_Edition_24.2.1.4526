@@ -3,11 +3,13 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
+  writeBatch,
 } from 'firebase/firestore'
 import type { Timestamp, Unsubscribe } from 'firebase/firestore'
 import { db } from './firebase'
@@ -31,6 +33,8 @@ export type Publicacion = {
   autorUid: string
   autorNombre: string
   autorTipoCuenta: TipoCuenta | ''
+  equipoId: string
+  canchaId: string
   equipoNombre: string
   nombreCancha: string
   titulo: string
@@ -67,6 +71,8 @@ export function escucharPublicaciones(
           autorNombre: String(data.autorNombre ?? 'Jugador'),
           autorTipoCuenta: ['jugador', 'capitan', 'equipo', 'dueno_cancha'].includes(data.autorTipoCuenta)
             ? data.autorTipoCuenta as TipoCuenta : ('' as const),
+          equipoId: String(data.equipoId ?? ''),
+          canchaId: String(data.canchaId ?? ''),
           equipoNombre: String(data.equipoNombre ?? ''),
           nombreCancha: String(data.nombreCancha ?? ''),
           titulo: String(data.titulo ?? ''),
@@ -94,7 +100,41 @@ export async function crearPublicacion(datos: NuevaPublicacion): Promise<void> {
   })
 }
 
-/** Borra el documento. Las reglas Firestore comprueban que sea su autor. */
-export async function eliminarPublicacion(id: string): Promise<void> {
-  await deleteDoc(doc(db, 'publicaciones', id))
+export async function obtenerPublicacionPorId(id: string): Promise<Publicacion | null> {
+  const snapshot = await getDoc(doc(db, 'publicaciones', id))
+  if (!snapshot.exists()) return null
+  const data = snapshot.data()
+  if (!categoriasValidas.includes(data.categoria) || data.estado !== 'activa') return null
+  return {
+    id: snapshot.id,
+    categoria: data.categoria as Categoria,
+    autorUid: String(data.autorUid ?? ''),
+    autorNombre: String(data.autorNombre ?? ''),
+    autorTipoCuenta: (data.autorTipoCuenta || '') as TipoCuenta | '',
+    equipoId: String(data.equipoId ?? ''),
+    canchaId: String(data.canchaId ?? ''),
+    equipoNombre: String(data.equipoNombre ?? ''),
+    nombreCancha: String(data.nombreCancha ?? ''),
+    titulo: String(data.titulo ?? ''),
+    descripcion: String(data.descripcion ?? ''),
+    comuna: String(data.comuna ?? ''),
+    futbol: data.futbol as TipoFutbol,
+    nivel: data.nivel as Nivel,
+    fecha: String(data.fecha ?? ''),
+    hora: String(data.hora ?? ''),
+    estado: 'activa',
+    creadoEn: (data.creadoEn ?? null) as Timestamp | null,
+  }
+}
+
+/** Borra el anuncio propio. Si era una cancha, también borra su ficha. */
+export async function eliminarPublicacion(post: Publicacion): Promise<void> {
+  if (post.categoria === 'ofrece_cancha' && post.canchaId) {
+    const batch = writeBatch(db)
+    batch.delete(doc(db, 'publicaciones', post.id))
+    batch.delete(doc(db, 'canchas', post.canchaId))
+    await batch.commit()
+  } else {
+    await deleteDoc(doc(db, 'publicaciones', post.id))
+  }
 }

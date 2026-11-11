@@ -126,12 +126,12 @@ service cloud.firestore {
 
       function validPublication(data) {
         return data.keys().hasOnly([
-            'categoria', 'autorUid', 'autorNombre', 'autorTipoCuenta', 'equipoNombre', 'nombreCancha',
+            'categoria', 'autorUid', 'autorNombre', 'autorTipoCuenta', 'equipoId', 'canchaId', 'equipoNombre', 'nombreCancha',
             'titulo', 'descripcion', 'comuna', 'futbol', 'nivel',
             'fecha', 'hora', 'estado', 'creadoEn'
           ])
           && data.keys().hasAll([
-            'categoria', 'autorUid', 'autorNombre', 'autorTipoCuenta', 'equipoNombre', 'nombreCancha',
+            'categoria', 'autorUid', 'autorNombre', 'autorTipoCuenta', 'equipoId', 'canchaId', 'equipoNombre', 'nombreCancha',
             'titulo', 'descripcion', 'comuna', 'futbol', 'nivel',
             'fecha', 'hora', 'estado', 'creadoEn'
           ])
@@ -141,6 +141,10 @@ service cloud.firestore {
           && data.autorUid is string
           && data.autorUid == request.auth.uid
           && data.autorTipoCuenta in ['jugador', 'equipo', 'capitan', 'dueno_cancha']
+          && data.equipoId is string
+          && data.canchaId is string
+          && data.equipoId.size() <= 128
+          && data.canchaId.size() <= 128
           && data.autorNombre is string
           && data.autorNombre.size() >= 2
           && data.autorNombre.size() <= 70
@@ -191,11 +195,30 @@ service cloud.firestore {
           );
       }
 
+      function validLink(data) {
+        return (
+          // Los anuncios de búsqueda de rival o jugador pertenecen a un equipo registrado.
+          (data.categoria in ['equipo_busca_rival', 'equipo_busca_jugadores']
+            && data.equipoId == request.auth.uid && data.canchaId == ''
+            && exists(/databases/$(database)/documents/equipos/$(data.equipoId))
+            && get(/databases/$(database)/documents/equipos/$(data.equipoId)).data.nombre == data.equipoNombre)
+          || (data.categoria in ['persona_busca_equipo', 'busca_cancha']
+            && data.equipoId == '' && data.canchaId == '')
+          || (data.categoria == 'ofrece_cancha'
+            && data.equipoId == '' && data.canchaId.size() > 0
+            && existsAfter(/databases/$(database)/documents/canchas/$(data.canchaId))
+            && getAfter(/databases/$(database)/documents/canchas/$(data.canchaId)).data.duenoUid == request.auth.uid
+            && getAfter(/databases/$(database)/documents/canchas/$(data.canchaId)).data.anuncioId == postId
+            && getAfter(/databases/$(database)/documents/canchas/$(data.canchaId)).data.nombre == data.nombreCancha)
+        );
+      }
+
       allow read: if loggedIn();
 
       allow create: if loggedIn()
         && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
         && validPublication(request.resource.data)
+        && validLink(request.resource.data)
         && rolePermitsCategory(request.resource.data)
         && request.resource.data.autorNombre ==
           get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.nombre;
@@ -203,6 +226,144 @@ service cloud.firestore {
       // Únicamente el creador puede borrar su propia publicación.
       allow update: if false;
       allow delete: if loggedIn() && resource.data.autorUid == request.auth.uid;
+    }
+
+    // Fichas públicas de equipos. El ID coincide con la cuenta que administra el equipo.
+    match /equipos/{equipoId} {
+      function loggedIn() {
+        return request.auth != null;
+      }
+      function isManager() {
+        return loggedIn() && request.auth.uid == equipoId;
+      }
+      function validEquipo(data) {
+        return data.keys().hasOnly([
+            'ownerUid','nombre','descripcion','comuna','capitanUid','capitanNombre','creadoEn'
+          ])
+          && data.keys().hasAll([
+            'ownerUid','nombre','descripcion','comuna','capitanUid','capitanNombre','creadoEn'
+          ])
+          && data.ownerUid == equipoId
+          && data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 80
+          && data.descripcion is string && data.descripcion.size() <= 350
+          && data.comuna is string && data.comuna.size() >= 2 && data.comuna.size() <= 80
+          && data.capitanUid is string
+          && data.capitanNombre is string && data.capitanNombre.size() >= 2 && data.capitanNombre.size() <= 70;
+      }
+      function capitanPermitido(data) {
+        return (data.capitanUid == equipoId
+            && data.capitanNombre == get(/databases/$(database)/documents/usuarios/$(equipoId)).data.nombre)
+          || (exists(/databases/$(database)/documents/equipos/$(equipoId)/integrantes/$(data.capitanUid))
+            && data.capitanNombre ==
+              get(/databases/$(database)/documents/equipos/$(equipoId)/integrantes/$(data.capitanUid)).data.nombre);
+      }
+
+      allow get, list: if loggedIn();
+      allow create: if isManager()
+        && exists(/databases/$(database)/documents/usuarios/$(equipoId))
+        && get(/databases/$(database)/documents/usuarios/$(equipoId)).data.tipoCuenta in ['equipo','capitan']
+        && validEquipo(request.resource.data)
+        && request.resource.data.nombre ==
+          get(/databases/$(database)/documents/usuarios/$(equipoId)).data.nombreEquipo
+        && request.resource.data.comuna ==
+          get(/databases/$(database)/documents/usuarios/$(equipoId)).data.comuna
+        && request.resource.data.capitanUid == equipoId
+        && capitanPermitido(request.resource.data)
+        && request.resource.data.creadoEn == request.time;
+      allow update: if isManager()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['nombre','descripcion','comuna','capitanUid','capitanNombre'])
+        && validEquipo(request.resource.data)
+        && (
+          (request.resource.data.capitanUid == resource.data.capitanUid
+            && request.resource.data.capitanNombre == resource.data.capitanNombre)
+          || capitanPermitido(request.resource.data)
+        );
+      allow delete: if false;
+
+      match /integrantes/{memberUid} {
+        function manager() {
+          return request.auth != null && request.auth.uid == equipoId;
+        }
+        function validoDesdeSolicitud(data) {
+          let solicitud = get(/databases/$(database)/documents/solicitudes/$(data.solicitudId)).data;
+          let publicacion = get(/databases/$(database)/documents/publicaciones/$(solicitud.publicacionId)).data;
+          return solicitud.estado == 'aceptada'
+            && solicitud.get('incorporacionConfirmada', false) == true
+            && (
+              (solicitud.tipoSolicitud == 'postulacion'
+                && solicitud.autorPublicacionUid == equipoId
+                && solicitud.interesadoUid == memberUid
+                && publicacion.categoria == 'equipo_busca_jugadores'
+                && publicacion.equipoId == equipoId
+                && data.nombre == solicitud.nombreInteresado)
+              || (solicitud.tipoSolicitud == 'contacto'
+                && solicitud.interesadoUid == equipoId
+                && solicitud.autorPublicacionUid == memberUid
+                && publicacion.categoria == 'persona_busca_equipo'
+                && data.nombre == solicitud.nombreAutor)
+            );
+        }
+        allow get, list: if request.auth != null;
+        allow create: if manager()
+          && memberUid != equipoId
+          && request.resource.data.keys().hasOnly(['uid','nombre','solicitudId','creadoEn'])
+          && request.resource.data.keys().hasAll(['uid','nombre','solicitudId','creadoEn'])
+          && request.resource.data.uid == memberUid
+          && request.resource.data.nombre is string
+          && request.resource.data.nombre.size() >= 2 && request.resource.data.nombre.size() <= 70
+          && request.resource.data.solicitudId is string
+          && request.resource.data.solicitudId.size() >= 2
+          && exists(/databases/$(database)/documents/solicitudes/$(request.resource.data.solicitudId))
+          && validoDesdeSolicitud(request.resource.data)
+          && request.resource.data.creadoEn == request.time;
+        // El miembro también puede salir voluntariamente de una plantilla.
+        // Para evitar equipos sin capitán, primero debe designarse otro si corresponde.
+        allow delete: if request.auth != null
+          && (manager() || request.auth.uid == memberUid)
+          && get(/databases/$(database)/documents/equipos/$(equipoId)).data.capitanUid != memberUid;
+        allow update: if false;
+      }
+    }
+
+    // Inventario de canchas. El alta se confirma en el mismo batch que el anuncio.
+    match /canchas/{canchaId} {
+      function loggedIn() {
+        return request.auth != null;
+      }
+      function validCancha(data) {
+        return data.keys().hasOnly([
+          'anuncioId','duenoUid','nombre','descripcion','region','regionCodigo',
+          'comuna','comunaCodigo','futbol','creadoEn'
+        ])
+        && data.keys().hasAll([
+          'anuncioId','duenoUid','nombre','descripcion','region','regionCodigo',
+          'comuna','comunaCodigo','futbol','creadoEn'
+        ])
+        && data.duenoUid == request.auth.uid
+        && data.anuncioId is string && data.anuncioId.size() > 0 && data.anuncioId.size() <= 128
+        && data.nombre is string && data.nombre.size() >= 2 && data.nombre.size() <= 100
+        && data.descripcion is string && data.descripcion.size() >= 15 && data.descripcion.size() <= 1200
+        && data.region is string && data.region.size() >= 3 && data.region.size() <= 80
+        && data.regionCodigo is string && data.regionCodigo.size() == 2
+        && data.comuna is string && data.comuna.size() >= 2 && data.comuna.size() <= 80
+        && data.comunaCodigo is string && data.comunaCodigo.size() == 5
+        && data.futbol in ['Fútbol 5','Fútbol 7','Fútbol 8','Fútbol 11']
+        && data.creadoEn == request.time;
+      }
+      allow get, list: if loggedIn();
+      allow create: if loggedIn()
+        && exists(/databases/$(database)/documents/usuarios/$(request.auth.uid))
+        && get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.tipoCuenta == 'dueno_cancha'
+        && validCancha(request.resource.data)
+        && existsAfter(/databases/$(database)/documents/publicaciones/$(request.resource.data.anuncioId))
+        && getAfter(/databases/$(database)/documents/publicaciones/$(request.resource.data.anuncioId)).data.canchaId == canchaId
+        && getAfter(/databases/$(database)/documents/publicaciones/$(request.resource.data.anuncioId)).data.autorUid == request.auth.uid
+        && getAfter(/databases/$(database)/documents/publicaciones/$(request.resource.data.anuncioId)).data.nombreCancha == request.resource.data.nombre
+        && getAfter(/databases/$(database)/documents/publicaciones/$(request.resource.data.anuncioId)).data.comuna == request.resource.data.comuna
+        && getAfter(/databases/$(database)/documents/publicaciones/$(request.resource.data.anuncioId)).data.futbol == request.resource.data.futbol;
+      allow delete: if loggedIn() && resource.data.duenoUid == request.auth.uid;
+      allow update: if false;
     }
 
     // Solicitudes de contacto vinculadas a una publicación.
@@ -219,16 +380,17 @@ service cloud.firestore {
 
       function validRequest(data) {
         return data.keys().hasOnly([
-            'tipoSolicitud', 'publicacionId', 'autorPublicacionUid', 'interesadoUid',
+            'tipoSolicitud', 'incorporacionConfirmada', 'publicacionId', 'autorPublicacionUid', 'interesadoUid',
             'nombreInteresado', 'nombreAutor', 'tituloPublicacion',
             'estado', 'creadoEn', 'respondidoEn'
           ])
           && data.keys().hasAll([
-            'tipoSolicitud', 'publicacionId', 'autorPublicacionUid', 'interesadoUid',
+            'tipoSolicitud', 'incorporacionConfirmada', 'publicacionId', 'autorPublicacionUid', 'interesadoUid',
             'nombreInteresado', 'nombreAutor', 'tituloPublicacion',
             'estado', 'creadoEn', 'respondidoEn'
           ])
           && data.tipoSolicitud in ['postulacion', 'contacto']
+          && data.incorporacionConfirmada == false
           && data.publicacionId is string
           && data.autorPublicacionUid is string
           && data.interesadoUid == request.auth.uid
@@ -253,7 +415,10 @@ service cloud.firestore {
       function validApplicantRole(data) {
         let interestedRole = get(/databases/$(database)/documents/usuarios/$(request.auth.uid)).data.get('tipoCuenta', 'jugador');
         let publication = get(/databases/$(database)/documents/publicaciones/$(data.publicacionId)).data;
-        return (interestedRole in ['equipo', 'capitan'] && data.tipoSolicitud == 'contacto')
+        return (interestedRole in ['equipo', 'capitan'] && data.tipoSolicitud == 'contacto'
+            && (publication.categoria != 'equipo_busca_rival'
+              || (exists(/databases/$(database)/documents/equipos/$(request.auth.uid))
+                && publication.equipoId != request.auth.uid)))
           || (interestedRole == 'jugador'
             && data.tipoSolicitud == 'postulacion'
             && publication.categoria == 'equipo_busca_jugadores'
@@ -284,6 +449,35 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'respondidoEn'])
         && request.resource.data.estado in ['aceptada', 'rechazada']
         && request.resource.data.respondidoEn == request.time;
+
+      // El jugador confirma voluntariamente antes de figurar en la plantilla.
+      allow update: if isSignedIn()
+        && resource.data.estado == 'aceptada'
+        && resource.data.get('incorporacionConfirmada', false) == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['incorporacionConfirmada'])
+        && request.resource.data.incorporacionConfirmada == true
+        && (
+          (resource.data.tipoSolicitud == 'postulacion'
+            && request.auth.uid == resource.data.interesadoUid)
+          || (resource.data.tipoSolicitud == 'contacto'
+            && request.auth.uid == resource.data.autorPublicacionUid
+            && exists(/databases/$(database)/documents/publicaciones/$(resource.data.publicacionId))
+            && get(/databases/$(database)/documents/publicaciones/$(resource.data.publicacionId)).data.categoria == 'persona_busca_equipo')
+        );
+
+      // El jugador también puede revocar el consentimiento de plantilla.
+      allow update: if isSignedIn()
+        && resource.data.estado == 'aceptada'
+        && resource.data.get('incorporacionConfirmada', false) == true
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['incorporacionConfirmada'])
+        && request.resource.data.incorporacionConfirmada == false
+        && (
+          (resource.data.tipoSolicitud == 'postulacion'
+            && request.auth.uid == resource.data.interesadoUid)
+          || (resource.data.tipoSolicitud == 'contacto'
+            && request.auth.uid == resource.data.autorPublicacionUid)
+        );
+
       allow delete: if false;
 
       match /mensajes/{mensajeId} {

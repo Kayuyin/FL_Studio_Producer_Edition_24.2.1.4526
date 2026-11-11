@@ -2,6 +2,8 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { User } from 'firebase/auth'
 import { categorias, crearPublicacion } from './publicaciones'
+import { registrarCanchaYAnuncio } from './canchas'
+import type { EquipoRegistrado } from './equipos'
 import { REGIONES_CHILE, obtenerComuna, obtenerRegion } from './territorioChile'
 import { cuentaConCancha } from './tiposCuenta'
 import type { TipoCuenta } from './tiposCuenta'
@@ -261,7 +263,7 @@ export function Explore({
 
 export function Publish({
   user, nombreAutor, tipoCuenta, equipoRegistrado, canchaRegistrada,
-  regionPerfil, comunaPerfil, categoriaInicial, onCreated,
+  regionPerfil, comunaPerfil, categoriaInicial, equipo, onGoToEquipo, onCreated,
 }: {
   user: User
   nombreAutor: string
@@ -271,6 +273,8 @@ export function Publish({
   regionPerfil: string
   comunaPerfil: string
   categoriaInicial: Categoria
+  equipo: EquipoRegistrado | null
+  onGoToEquipo: () => void
   onCreated: (categoria: Categoria) => void
 }) {
   const permitidas = tiposPublicables[tipoCuenta]
@@ -313,8 +317,12 @@ export function Publish({
       setError('Debes registrar el nombre de tu cancha en el perfil o en esta publicación.')
       return
     }
-    if (isEquipo && equipoNombre.trim().length < 2) {
-      setError('Indica el nombre de tu equipo.')
+    if (isEquipo && !equipo) {
+      setError('Antes de publicar una convocatoria o buscar rival, registra tu equipo en Mi equipo.')
+      return
+    }
+    if (isEquipo && (equipo?.nombre || equipoNombre).trim().length < 2) {
+      setError('Registra primero el nombre del equipo.')
       return
     }
     if (categoria === 'equipo_busca_rival' && (!fecha || !hora)) {
@@ -330,7 +338,9 @@ export function Publish({
       autorUid: user.uid,
       autorNombre: nombreAutor.trim(),
       autorTipoCuenta: tipoCuenta,
-      equipoNombre: isEquipo ? equipoNombre.trim() : '',
+      equipoId: isEquipo ? (equipo?.id ?? '') : '',
+      canchaId: '',
+      equipoNombre: isEquipo ? (equipo?.nombre ?? '').trim() : '',
       nombreCancha: isOffer ? nombreCancha.trim() : '',
       titulo: titulo.trim(),
       descripcion: descripcion.trim(),
@@ -342,7 +352,11 @@ export function Publish({
     }
     setSending(true)
     try {
-      await crearPublicacion(datos)
+      if (isOffer) {
+        await registrarCanchaYAnuncio(datos, region!.nombre, regionCodigo, comunaCodigo)
+      } else {
+        await crearPublicacion(datos)
+      }
       onCreated(categoria)
     } catch (reason) {
       const code = (reason as { code?: string }).code
@@ -375,9 +389,16 @@ export function Publish({
           {categorias[tipo].icon}<strong>{categorias[tipo].label}</strong><small>{opciones[tipo].description}</small>
         </button>)}
       </div>
-      {isEquipo && <label>Nombre de tu equipo
-        <input value={equipoNombre} onChange={(event) => setEquipoNombre(event.target.value)} maxLength={80} minLength={2} required placeholder="Ej: Deportivo FutMatch" />
-      </label>}
+      {isEquipo && <>
+        {!equipo && <div className="posts-feedback posts-error">
+          Para publicar una convocatoria o un desafío primero debes registrar tu equipo.
+          <button type="button" className="secondary-button" onClick={onGoToEquipo}>Ir a Mi equipo</button>
+        </div>}
+        <label>Nombre de tu equipo registrado
+          <input value={equipo?.nombre || equipoNombre} onChange={(event) => setEquipoNombre(event.target.value)}
+            disabled={!!equipo} maxLength={80} minLength={2} required placeholder="Ej: Deportivo FutMatch" />
+        </label>
+      </>}
       {isOffer && <label>Nombre de tu cancha
         <input value={nombreCancha} onChange={(event) => setNombreCancha(event.target.value)} maxLength={100} minLength={2} required placeholder="Ej: Canchas del Parque" />
       </label>}

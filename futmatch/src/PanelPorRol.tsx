@@ -5,7 +5,7 @@ import { TIPOS_CUENTA } from './tiposCuenta'
 import type { PerfilUsuario } from './Perfil'
 import { PublicacionCard } from './VistasPublicaciones'
 
-type Seccion = 'publicar' | 'mis_publicaciones' | 'matches' | 'mensajes' | 'perfil' | 'explorar'
+type Seccion = 'publicar' | 'mis_publicaciones' | 'mi_equipo' | 'matches' | 'mensajes' | 'perfil' | 'explorar'
 
 type Acceso = {
   texto: string
@@ -16,7 +16,7 @@ type Acceso = {
 
 export function PanelPorRol({
   nombre, perfil, tipoCuenta, uid, publicaciones, solicitudes, loading, error,
-  onNavigate, onExplore, onPublish, onInterest, onDelete,
+  onNavigate, onExplore, onPublish, onInterest, onDelete, onOpenEquipos, onOpenCanchas,
 }: {
   nombre: string
   perfil: PerfilUsuario | null
@@ -27,6 +27,8 @@ export function PanelPorRol({
   loading: boolean
   error: string
   onNavigate: (vista: Seccion) => void
+  onOpenEquipos: () => void
+  onOpenCanchas: () => void
   onExplore: (categoria: Categoria) => void
   onPublish: (categoria: Categoria) => void
   onInterest: (post: Publicacion) => Promise<void>
@@ -48,7 +50,7 @@ export function PanelPorRol({
     { texto: 'Buscar equipo', descripcion: 'Vacantes publicadas por capitanes', icono: '⌕', accion: () => onExplore('equipo_busca_jugadores') },
     { texto: 'Ofrecerme como jugador', descripcion: 'Publica tu búsqueda de equipo', icono: '+', accion: () => onPublish('persona_busca_equipo') },
     { texto: 'Mis postulaciones', descripcion: 'Revisa las solicitudes enviadas', icono: '♥', accion: () => onNavigate('matches') },
-    { texto: 'Mis publicaciones', descripcion: 'Revisa o elimina tus anuncios', icono: '▤', accion: () => onNavigate('mis_publicaciones') },
+    { texto: 'Equipos registrados', descripcion: 'Conoce capitanes y plantillas', icono: '⚽', accion: onOpenEquipos },
   ]
 
   if (tipoCuenta === 'capitan') {
@@ -60,7 +62,9 @@ export function PanelPorRol({
       { texto: 'Encontrar jugadores', descripcion: 'Jugadores disponibles', icono: '⌕', accion: () => onExplore('persona_busca_equipo') },
       { texto: 'Buscar refuerzos', descripcion: 'Publica una convocatoria', icono: '+', accion: () => onPublish('equipo_busca_jugadores') },
       { texto: 'Buscar un rival', descripcion: 'Coordina un amistoso', icono: '⚔', accion: () => onExplore('equipo_busca_rival') },
-      { texto: 'Perfil del equipo', descripcion: 'Edita los datos de tu equipo', icono: '◉', accion: () => onNavigate('perfil') },
+      { texto: 'Mi equipo', descripcion: 'Ver capitán y plantilla', icono: '⚽', accion: () => onNavigate('mi_equipo') },
+      { texto: 'Buscar cancha', descripcion: 'Revisa recintos disponibles', icono: '▣', accion: onOpenCanchas },
+      { texto: 'Explorar equipos', descripcion: 'Ver jugadores de otros clubes', icono: '⌕', accion: onOpenEquipos },
     ]
   } else if (tipoCuenta === 'equipo') {
     titulo = 'Panel de tu equipo'
@@ -72,6 +76,9 @@ export function PanelPorRol({
       { texto: 'Mis publicaciones', descripcion: 'Administra los anuncios del equipo', icono: '▤', accion: () => onNavigate('mis_publicaciones') },
       { texto: 'Encontrar rivales', descripcion: 'Explora desafíos deportivos', icono: '⚔', accion: () => onExplore('equipo_busca_rival') },
       { texto: 'Crear desafío', descripcion: 'Publica un partido propuesto', icono: '▤', accion: () => onPublish('equipo_busca_rival') },
+      { texto: 'Mi equipo', descripcion: 'Plantilla y capitán', icono: '⚽', accion: () => onNavigate('mi_equipo') },
+      { texto: 'Buscar cancha', descripcion: 'Contacta a dueños de canchas', icono: '▣', accion: onOpenCanchas },
+      { texto: 'Explorar equipos', descripcion: 'Conoce rivales y plantillas', icono: '⌕', accion: onOpenEquipos },
     ]
   } else if (tipoCuenta === 'dueno_cancha') {
     titulo = 'Panel de mis canchas'

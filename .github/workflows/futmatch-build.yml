@@ -48,4 +48,4 @@ jobs:
       # No utiliza credenciales ni modifica Firebase de producción.
       - run: npm ci
       - run: npm install --no-save --package-lock=false @firebase/rules-unit-testing@6.0.0
-      - run: npx --yes firebase-tools@14.18.0 emulators:exec --project demo-futmatch --only firestore "node tests/reservas.rules.test.mjs"
+      - run: npx --yes firebase-tools@14.18.0 emulators:exec --project demo-futmatch --only firestore "node tests/reservas.rules.test.mjs && node tests/tipos-cuenta.rules.test.mjs"

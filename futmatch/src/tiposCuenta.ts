@@ -4,9 +4,11 @@ export const TIPOS_CUENTA = {
     label: 'Jugador',
     description: 'Quiero buscar equipo y participar en partidos.',
   },
+  // Compatibilidad: los perfiles Equipo creados anteriormente conservan acceso
+  // a sus publicaciones, partidos, chats y plantillas hasta migrar a Capitán.
   equipo: {
-    label: 'Equipo',
-    description: 'Represento un equipo que busca jugadores o rivales.',
+    label: 'Equipo (cuenta anterior)',
+    description: 'Este tipo de cuenta fue reemplazado. Cambia a Capitán desde Perfil para gestionar tu equipo.',
   },
   capitan: {
     label: 'Capitán',
@@ -20,7 +22,8 @@ export const TIPOS_CUENTA = {
 
 export type TipoCuenta = keyof typeof TIPOS_CUENTA
 
-export const TIPOS_CUENTA_IDS = Object.keys(TIPOS_CUENTA) as TipoCuenta[]
+/** Únicos roles ofrecidos para crear nuevas cuentas y cambiar de rol. */
+export const TIPOS_CUENTA_IDS: TipoCuenta[] = ['jugador', 'capitan', 'dueno_cancha']
 
 export function tipoCuentaValido(valor: unknown): valor is TipoCuenta {
   return typeof valor === 'string'

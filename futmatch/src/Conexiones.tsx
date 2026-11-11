@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import type { FormEvent, ReactNode } from 'react'
 import type { User } from 'firebase/auth'
 import type { Mensaje, Solicitud } from './solicitudes'
-import { enviarMensaje, observarMensajes, responderSolicitud } from './solicitudes'
+import { confirmarIncorporacion, enviarMensaje, observarMensajes, responderSolicitud } from './solicitudes'
 import type { Publicacion } from './publicaciones'
 import type { EquipoRegistrado } from './equipos'
 import { incorporarJugador } from './equipos'
@@ -72,12 +72,24 @@ export function Matches({
   onFindCanchas: () => void
 }) {
   const [adding, setAdding] = useState('')
+  const [confirming, setConfirming] = useState('')
   const [actionError, setActionError] = useState('')
   const [actionSuccess, setActionSuccess] = useState('')
   const recibidas = solicitudes.filter((item) => item.autorPublicacionUid === user.uid)
   const enviadas = solicitudes.filter((item) => item.interesadoUid === user.uid)
   async function changeRequest(id: string, estado: 'aceptada' | 'rechazada') {
     await responderSolicitud(id, estado)
+  }
+  async function confirmMembership(item: Solicitud) {
+    setConfirming(item.id)
+    setActionError('')
+    setActionSuccess('')
+    try {
+      await confirmarIncorporacion(item.id)
+      setActionSuccess('Confirmaste que quieres aparecer en la plantilla del equipo. Su responsable ya puede incorporarte.')
+    } catch {
+      setActionError('No se pudo confirmar la incorporación. Comprueba las reglas y que el contacto esté aceptado.')
+    } finally { setConfirming('') }
   }
   async function addToRoster(item: Solicitud) {
     if (!miEquipo) return
@@ -97,7 +109,12 @@ export function Matches({
   function actions(item: Solicitud) {
     if (item.estado !== 'aceptada') return null
     const post = publicaciones.find((entry) => entry.id === item.publicacionId)
-    const canIncorporate = !!miEquipo && !!post && (
+    const canConfirm = !item.incorporacionConfirmada && (
+      (item.tipoSolicitud === 'postulacion' && item.interesadoUid === user.uid)
+      || (item.tipoSolicitud === 'contacto' && item.autorPublicacionUid === user.uid
+        && post?.categoria === 'persona_busca_equipo')
+    )
+    const canIncorporate = !!miEquipo && !!post && item.incorporacionConfirmada && (
       (item.tipoSolicitud === 'postulacion' && item.autorPublicacionUid === user.uid
         && post.categoria === 'equipo_busca_jugadores' && post.equipoId === miEquipo.id)
       || (item.tipoSolicitud === 'contacto' && item.interesadoUid === user.uid
@@ -108,6 +125,10 @@ export function Matches({
     const otherUid = item.interesadoUid === user.uid ? item.autorPublicacionUid : item.interesadoUid
     const rival = equipos.find((team) => team.ownerUid === otherUid)
     return <>
+      {canConfirm && <button type="button" className="primary-button" disabled={!!confirming}
+        onClick={() => { void confirmMembership(item) }}>
+        {confirming === item.id ? 'Confirmando…' : 'Confirmar ingreso a la plantilla'}
+      </button>}
       {canIncorporate && <button type="button" className="secondary-button"
         disabled={!!adding} onClick={() => { void addToRoster(item) }}>
         {adding === item.id ? 'Incorporando…' : 'Añadir jugador a mi plantilla'}

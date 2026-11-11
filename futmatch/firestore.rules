@@ -285,6 +285,7 @@ service cloud.firestore {
           let solicitud = get(/databases/$(database)/documents/solicitudes/$(data.solicitudId)).data;
           let publicacion = get(/databases/$(database)/documents/publicaciones/$(solicitud.publicacionId)).data;
           return solicitud.estado == 'aceptada'
+            && solicitud.get('incorporacionConfirmada', false) == true
             && (
               (solicitud.tipoSolicitud == 'postulacion'
                 && solicitud.autorPublicacionUid == equipoId
@@ -372,16 +373,17 @@ service cloud.firestore {
 
       function validRequest(data) {
         return data.keys().hasOnly([
-            'tipoSolicitud', 'publicacionId', 'autorPublicacionUid', 'interesadoUid',
+            'tipoSolicitud', 'incorporacionConfirmada', 'publicacionId', 'autorPublicacionUid', 'interesadoUid',
             'nombreInteresado', 'nombreAutor', 'tituloPublicacion',
             'estado', 'creadoEn', 'respondidoEn'
           ])
           && data.keys().hasAll([
-            'tipoSolicitud', 'publicacionId', 'autorPublicacionUid', 'interesadoUid',
+            'tipoSolicitud', 'incorporacionConfirmada', 'publicacionId', 'autorPublicacionUid', 'interesadoUid',
             'nombreInteresado', 'nombreAutor', 'tituloPublicacion',
             'estado', 'creadoEn', 'respondidoEn'
           ])
           && data.tipoSolicitud in ['postulacion', 'contacto']
+          && data.incorporacionConfirmada == false
           && data.publicacionId is string
           && data.autorPublicacionUid is string
           && data.interesadoUid == request.auth.uid
@@ -437,6 +439,22 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['estado', 'respondidoEn'])
         && request.resource.data.estado in ['aceptada', 'rechazada']
         && request.resource.data.respondidoEn == request.time;
+
+      // El jugador confirma voluntariamente antes de figurar en la plantilla.
+      allow update: if isSignedIn()
+        && resource.data.estado == 'aceptada'
+        && resource.data.get('incorporacionConfirmada', false) == false
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['incorporacionConfirmada'])
+        && request.resource.data.incorporacionConfirmada == true
+        && (
+          (resource.data.tipoSolicitud == 'postulacion'
+            && request.auth.uid == resource.data.interesadoUid)
+          || (resource.data.tipoSolicitud == 'contacto'
+            && request.auth.uid == resource.data.autorPublicacionUid
+            && exists(/databases/$(database)/documents/publicaciones/$(resource.data.publicacionId))
+            && get(/databases/$(database)/documents/publicaciones/$(resource.data.publicacionId)).data.categoria == 'persona_busca_equipo')
+        );
+
       allow delete: if false;
 
       match /mensajes/{mensajeId} {

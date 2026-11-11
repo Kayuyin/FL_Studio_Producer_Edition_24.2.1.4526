@@ -63,7 +63,7 @@ export function escucharPlantilla(
     })), onError)
 }
 
-/** Un equipo por cuenta administradora. Cuenta Equipo = representante; cuenta Capitán = capitán inicial. */
+/** Un equipo por cuenta administradora. El responsable figura como capitán inicial. */
 export async function crearEquipo(user: User, perfil: PerfilUsuario): Promise<void> {
   const tipo = perfil.tipoCuenta
   if (tipo !== 'equipo' && tipo !== 'capitan') throw new Error('Debes tener una cuenta de Equipo o Capitán.')
@@ -74,8 +74,8 @@ export async function crearEquipo(user: User, perfil: PerfilUsuario): Promise<vo
     nombre,
     descripcion: (perfil.bio ?? '').trim().slice(0, 350),
     comuna: perfil.comuna,
-    capitanUid: tipo === 'capitan' ? user.uid : '',
-    capitanNombre: tipo === 'capitan' ? perfil.nombre.trim() : '',
+    capitanUid: user.uid,
+    capitanNombre: perfil.nombre.trim(),
     creadoEn: serverTimestamp(),
   })
 }
@@ -87,12 +87,15 @@ export async function editarEquipo(equipoId: string, nombre: string, descripcion
 }
 
 export async function incorporarJugador(equipoId: string, solicitud: Solicitud): Promise<void> {
-  if (solicitud.tipoSolicitud !== 'postulacion' || solicitud.estado !== 'aceptada') {
-    throw new Error('Solo se pueden incorporar jugadores cuya postulación fue aceptada.')
+  if (solicitud.estado !== 'aceptada') {
+    throw new Error('Primero deben aceptar la postulación o el contacto del jugador.')
   }
-  await setDoc(doc(db, 'equipos', equipoId, 'integrantes', solicitud.interesadoUid), {
-    uid: solicitud.interesadoUid,
-    nombre: solicitud.nombreInteresado,
+  const porPostulacion = solicitud.tipoSolicitud === 'postulacion'
+  const uid = porPostulacion ? solicitud.interesadoUid : solicitud.autorPublicacionUid
+  const nombre = porPostulacion ? solicitud.nombreInteresado : solicitud.nombreAutor
+  await setDoc(doc(db, 'equipos', equipoId, 'integrantes', uid), {
+    uid,
+    nombre,
     solicitudId: solicitud.id,
     creadoEn: serverTimestamp(),
   })

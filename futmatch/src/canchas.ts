@@ -17,6 +17,9 @@ export type CanchaRegistrada = {
   comuna: string
   comunaCodigo: string
   futbol: string
+  direccion: string
+  precioHora: number
+  informacionHorarios: string
   creadoEn: Timestamp | null
 }
 
@@ -38,6 +41,9 @@ export function escucharCanchas(
         comuna: String(data.comuna ?? ''),
         comunaCodigo: String(data.comunaCodigo ?? ''),
         futbol: String(data.futbol ?? ''),
+        direccion: String(data.direccion ?? ''),
+        precioHora: typeof data.precioHora === 'number' ? data.precioHora : 0,
+        informacionHorarios: String(data.informacionHorarios ?? ''),
         creadoEn: (data.creadoEn ?? null) as Timestamp | null,
       }
     })), onError)
@@ -49,7 +55,15 @@ export async function registrarCanchaYAnuncio(
   region: string,
   regionCodigo: string,
   comunaCodigo: string,
+  direccion: string,
+  precioHora: number,
+  informacionHorarios: string,
 ): Promise<void> {
+  if (!direccion.trim() || direccion.trim().length < 5 || direccion.trim().length > 160
+    || !Number.isInteger(precioHora) || precioHora < 0 || precioHora > 1000000
+    || informacionHorarios.length > 200) {
+    throw new Error('Indica una dirección válida, precio por hora y horarios de atención.')
+  }
   if (datos.categoria !== 'ofrece_cancha' || datos.autorTipoCuenta !== 'dueno_cancha') {
     throw new Error('Este formulario solo permite registrar una oferta de cancha.')
   }
@@ -63,6 +77,9 @@ export async function registrarCanchaYAnuncio(
     descripcion: datos.descripcion,
     region, regionCodigo, comuna: datos.comuna, comunaCodigo,
     futbol: datos.futbol,
+    direccion: direccion.trim(),
+    precioHora,
+    informacionHorarios: informacionHorarios.trim(),
     creadoEn: serverTimestamp(),
   })
   batch.set(anuncio, {

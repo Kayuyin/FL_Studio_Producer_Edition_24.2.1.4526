@@ -26,11 +26,19 @@ import { Matches, Mensajes, ConversacionesCanchas } from './Conexiones'
 import { Perfil } from './Perfil'
 import type { PerfilUsuario } from './Perfil'
 import { TIPOS_CUENTA, tipoCuentaValido } from './tiposCuenta'
+import type { TipoCuenta } from './tiposCuenta'
 import { FutIcon } from './FutIcon'
 import type { FutIconName } from './FutIcon'
 import './App.css'
 
 type View = 'inicio' | 'explorar' | 'equipos' | 'mi_equipo' | 'canchas' | 'partidos' | 'reservas' | 'publicar' | 'mis_publicaciones' | 'matches' | 'mensajes' | 'perfil' | 'ayuda'
+// Las vistas del cliente son específicas por rol; Firestore protege los datos.
+const roleViews: Record<TipoCuenta, readonly View[]> = {
+  jugador: ['inicio','explorar','equipos','publicar','mis_publicaciones','matches','mensajes','perfil','ayuda'],
+  capitan: ['inicio','explorar','equipos','mi_equipo','canchas','partidos','reservas','publicar','mis_publicaciones','matches','mensajes','perfil','ayuda'],
+  equipo: ['inicio','explorar','equipos','mi_equipo','canchas','partidos','reservas','publicar','mis_publicaciones','matches','mensajes','perfil','ayuda'],
+  dueno_cancha: ['inicio','publicar','mis_publicaciones','mensajes','perfil','ayuda'],
+}
 const navItems: { id: View; label: string; icon: FutIconName }[] = [
   { id: 'inicio', label: 'Inicio', icon: 'home' },
   { id: 'explorar', label: 'Explorar', icon: 'search' },
@@ -112,11 +120,7 @@ function Dashboard({
       : 'persona_busca_equipo'
   }
   const goTo = (nextView: View) => {
-    // El dueño de cancha no navega por anuncios ajenos ni envía solicitudes.
-    const allowedView = tipoCuenta === 'dueno_cancha'
-      ? nextView === 'explorar' ? 'inicio'
-        : nextView === 'matches' ? 'mensajes' : nextView
-      : nextView
+    const allowedView: View = roleViews[tipoCuenta].includes(nextView) ? nextView : 'inicio'
     if (allowedView === 'publicar') setCategoriaInicial(defaultCategoria())
     if (allowedView === 'equipos') setSelectedTeamId('')
     setView(allowedView)
@@ -128,16 +132,25 @@ function Dashboard({
     goTo('explorar')
   }
   const publicarCategoria = (categoria: Categoria) => {
-    setCategoriaInicial(tipoCuenta === 'dueno_cancha' ? 'ofrece_cancha' : categoria)
+    const categoriasPermitidas: Record<TipoCuenta, readonly Categoria[]> = {
+      jugador: ['persona_busca_equipo'],
+      capitan: ['equipo_busca_jugadores','equipo_busca_rival','busca_cancha'],
+      equipo: ['equipo_busca_rival','busca_cancha'],
+      dueno_cancha: ['ofrece_cancha'],
+    }
+    if (!categoriasPermitidas[tipoCuenta].includes(categoria)) { goTo('inicio'); return }
+    setCategoriaInicial(categoria)
     setView('publicar')
     setMenuOpen(false)
   }
   const openEquipo = (equipoId: string) => {
+    if (!roleViews[tipoCuenta].includes('equipos')) return
     setSelectedTeamId(equipoId)
     setView('equipos')
     setMenuOpen(false)
   }
   const goToCanchas = (partidoId?: string) => {
+    if (!roleViews[tipoCuenta].includes('canchas')) return
     setPartidoSeleccionadoId(partidoId || '')
     goTo('canchas')
   }
@@ -291,17 +304,13 @@ function Dashboard({
 
   const newRequests = solicitudes.filter((item) =>
     item.autorPublicacionUid === user.uid && item.estado === 'pendiente').length
-  const displayedNav = tipoCuenta === 'dueno_cancha'
-    ? navItems.filter((item) => ['inicio', 'publicar', 'mis_publicaciones', 'mensajes', 'perfil'].includes(item.id))
-    : tipoCuenta === 'jugador'
-      ? navItems.filter((item) => !['mi_equipo', 'canchas', 'partidos', 'reservas'].includes(item.id))
-      : navItems
+  const displayedNav = navItems.filter(item => roleViews[tipoCuenta].includes(item.id))
   const mobileNav = displayedNav.filter(item => (tipoCuenta === 'dueno_cancha'
     ? ['inicio','publicar','mensajes','perfil'].includes(item.id)
     : tipoCuenta === 'jugador'
       ? ['inicio','explorar','matches','mensajes','perfil'].includes(item.id)
       : ['inicio','mi_equipo','partidos','reservas','mensajes'].includes(item.id)))
-  const currentView = tipoCuenta === 'dueno_cancha' && (view === 'explorar' || view === 'matches') ? 'inicio' : view
+  const currentView: View = roleViews[tipoCuenta].includes(view) ? view : 'inicio'
   function labelFor(item: (typeof navItems)[number]): string {
     if (tipoCuenta !== 'dueno_cancha') {
       if (item.id === 'equipos') return tipoCuenta === 'jugador' ? 'Buscar equipos' : 'Buscar rivales'
@@ -342,7 +351,7 @@ function Dashboard({
         <div className="mobile-brand"><FutIcon name="football" /> Fut<span>Match</span></div>
         <div className="topbar-actions">
           <button type="button" className="icon-button" aria-label={`Solicitudes pendientes: ${newRequests}`}
-            title="Ver solicitudes recibidas" onClick={() => goTo('matches')}><FutIcon name="bell" />{newRequests > 0 && <i />}</button>
+            title="Ver solicitudes recibidas" onClick={() => goTo(tipoCuenta === 'dueno_cancha' ? 'mensajes' : 'matches')}><FutIcon name="bell" />{newRequests > 0 && <i />}</button>
           <button type="button" className="avatar avatar-purple profile-shortcut" title="Ver mi perfil"
             aria-label="Ver mi perfil" onClick={() => goTo('perfil')}>{initials}</button>
         </div>
@@ -383,6 +392,7 @@ function Dashboard({
       {currentView === 'canchas' && (tipoCuenta === 'capitan' || tipoCuenta === 'equipo') &&
         <CatalogoCanchas canchas={canchas} loading={canchasLoading} error={canchasError}
           solicitudes={solicitudes} userUid={user.uid} onContact={onCanchaContact}
+          initialComunaCodigo={miEquipo?.comunaCodigo || perfil?.comunaCodigo || ''}
           partidos={partidos} reservas={reservas} partidoSeleccionadoId={partidoSeleccionadoId}
           onSelectPartido={setPartidoSeleccionadoId} onSolicitarReserva={onSolicitarReserva} />}
       {currentView === 'partidos' && (tipoCuenta === 'equipo' || tipoCuenta === 'capitan') &&

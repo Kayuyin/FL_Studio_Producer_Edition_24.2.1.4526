@@ -1,6 +1,6 @@
 import {
   collection, doc, limit, onSnapshot, orderBy,
-  query, serverTimestamp, updateDoc, writeBatch,
+  query, serverTimestamp, updateDoc, writeBatch, where,
 } from 'firebase/firestore'
 import type { Timestamp, Unsubscribe } from 'firebase/firestore'
 import { db } from './firebase'
@@ -23,30 +23,35 @@ export type CanchaRegistrada = {
   creadoEn: Timestamp | null
 }
 
+function leerCancha(id: string, data: Record<string, unknown>): CanchaRegistrada {
+  return {
+    id, anuncioId: String(data.anuncioId ?? ''), duenoUid: String(data.duenoUid ?? ''),
+    nombre: String(data.nombre ?? ''), descripcion: String(data.descripcion ?? ''),
+    region: String(data.region ?? ''), regionCodigo: String(data.regionCodigo ?? ''),
+    comuna: String(data.comuna ?? ''), comunaCodigo: String(data.comunaCodigo ?? ''),
+    futbol: String(data.futbol ?? ''), direccion: String(data.direccion ?? ''),
+    precioHora: typeof data.precioHora === 'number' ? data.precioHora : 0,
+    informacionHorarios: String(data.informacionHorarios ?? ''),
+    creadoEn: (data.creadoEn ?? null) as Timestamp | null,
+  }
+}
+
+export function escucharCanchasPorComuna(
+  comunaCodigo: string,
+  onData: (canchas: CanchaRegistrada[]) => void,
+  onError: (error: Error) => void,
+): Unsubscribe {
+  if (!comunaCodigo) { onData([]); return () => {} }
+  return onSnapshot(query(collection(db, 'canchas'), where('comunaCodigo', '==', comunaCodigo)),
+    snapshot => onData(snapshot.docs.map(d => leerCancha(d.id, d.data()))), onError)
+}
+
 export function escucharCanchas(
   onData: (canchas: CanchaRegistrada[]) => void,
   onError: (error: Error) => void,
 ): Unsubscribe {
   return onSnapshot(query(collection(db, 'canchas'), orderBy('creadoEn', 'desc'), limit(100)),
-    (snapshot) => onData(snapshot.docs.map((item) => {
-      const data = item.data()
-      return {
-        id: item.id,
-        anuncioId: String(data.anuncioId ?? ''),
-        duenoUid: String(data.duenoUid ?? ''),
-        nombre: String(data.nombre ?? ''),
-        descripcion: String(data.descripcion ?? ''),
-        region: String(data.region ?? ''),
-        regionCodigo: String(data.regionCodigo ?? ''),
-        comuna: String(data.comuna ?? ''),
-        comunaCodigo: String(data.comunaCodigo ?? ''),
-        futbol: String(data.futbol ?? ''),
-        direccion: String(data.direccion ?? ''),
-        precioHora: typeof data.precioHora === 'number' ? data.precioHora : 0,
-        informacionHorarios: String(data.informacionHorarios ?? ''),
-        creadoEn: (data.creadoEn ?? null) as Timestamp | null,
-      }
-    })), onError)
+    (snapshot) => onData(snapshot.docs.map(item => leerCancha(item.id, item.data()))), onError)
 }
 
 /** Un anuncio y su cancha se crean atómicamente: no quedarán registros huérfanos. */

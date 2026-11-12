@@ -219,24 +219,25 @@ export function Explore({
   const [search, setSearch] = useState('')
   const [nivel, setNivel] = useState<Nivel | 'todos'>('todos')
   const [comunaCancha, setComunaCancha] = useState('')
-  const categoriasVisibles = viewerTipoCuenta === 'equipo'
-    ? tipos.filter((tipo) => tipo !== 'equipo_busca_jugadores')
-    : tipos
-  const filtroActivo = viewerTipoCuenta === 'jugador'
-    ? 'equipo_busca_jugadores'
-    : viewerTipoCuenta === 'equipo' && filter === 'equipo_busca_jugadores' ? 'todos' : filter
+  const categoriasVisibles: Categoria[] = viewerTipoCuenta === 'jugador' ? ['equipo_busca_jugadores']
+    : viewerTipoCuenta === 'capitan' || viewerTipoCuenta === 'equipo'
+      ? ['persona_busca_equipo','equipo_busca_rival','busca_cancha','ofrece_cancha'] : []
+  const filtroActivo: Categoria | 'todos' = viewerTipoCuenta === 'jugador' ? 'equipo_busca_jugadores'
+    : filter === 'todos' || categoriasVisibles.includes(filter)
+      || (viewerTipoCuenta === 'capitan' && filter === 'equipo_busca_jugadores') ? filter : 'todos'
   const result = useMemo(() => {
     const term = search.trim().toLocaleLowerCase('es-CL')
     return publicaciones.filter((post) =>
-      (viewerTipoCuenta !== 'jugador' || post.autorTipoCuenta === 'capitan')
-      && (viewerTipoCuenta !== 'equipo' || post.categoria !== 'equipo_busca_jugadores')
+      (viewerTipoCuenta !== 'jugador' || (post.categoria === 'equipo_busca_jugadores' && post.autorTipoCuenta === 'capitan'))
+      && ((viewerTipoCuenta !== 'capitan' && viewerTipoCuenta !== 'equipo') || post.categoria !== 'equipo_busca_jugadores'
+        || (viewerTipoCuenta === 'capitan' && post.autorUid === userUid))
       && (filtroActivo === 'todos' || post.categoria === filtroActivo)
       && (filtroActivo === 'busca_cancha' || filtroActivo === 'ofrece_cancha' || nivel === 'todos' || post.nivel === nivel)
       && (!['busca_cancha', 'ofrece_cancha'].includes(filtroActivo) || !comunaCancha || post.comuna === comunaCancha)
       && (!term || [post.titulo, post.descripcion, post.comuna, post.autorNombre, post.equipoNombre]
         .some((value) => value.toLocaleLowerCase('es-CL').includes(term))),
     )
-  }, [publicaciones, filtroActivo, search, nivel, comunaCancha, viewerTipoCuenta])
+  }, [publicaciones, filtroActivo, search, nivel, comunaCancha, viewerTipoCuenta, userUid])
 
   return <div className="page">
     <div className="page-heading"><div>
@@ -244,9 +245,7 @@ export function Explore({
       <h1>Explorar publicaciones</h1>
       <p className="muted">{viewerTipoCuenta === 'jugador'
         ? 'Revisa las vacantes publicadas por capitanes y postula al equipo que te interese.'
-        : viewerTipoCuenta === 'equipo'
-          ? 'Encuentra jugadores que buscan equipo, equipos rivales y canchas. Las vacantes de otros equipos no aparecen aquí.'
-          : 'Encuentra jugadores, equipos, rivales, ofertas y solicitudes de canchas.'}</p>
+        : 'Encuentra jugadores, rivales y anuncios de canchas. Las vacantes de otros equipos no aparecen aquí.'}</p>
     </div></div>
     <div className="filters" role="group" aria-label="Filtrar por categoría">
       {viewerTipoCuenta === 'jugador'

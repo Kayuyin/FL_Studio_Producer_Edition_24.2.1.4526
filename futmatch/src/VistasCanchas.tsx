@@ -108,7 +108,7 @@ export function CatalogoCanchas({
       <label className="search-box"><FutIcon name="search" /> <input value={search} aria-label="Buscar cancha"
         onChange={event => setSearch(event.target.value)} placeholder="Nombre, modalidad o comuna" /></label>
       <select aria-label="Filtrar por comuna" value={comunaCodigo} onChange={event => setComunaCodigo(event.target.value)}>
-        <option value="">Últimas 100 canchas registradas</option>
+        <option value="">Ver canchas recientes (todas las comunas)</option>
         {REGIONES_CHILE.flatMap(region => region.comunas.map(item =>
           <option key={item.codigo} value={item.codigo}>{item.nombre} · {region.nombre}</option>))}
       </select>
@@ -119,7 +119,7 @@ export function CatalogoCanchas({
     {loadingComuna && <p className="posts-feedback" role="status">Buscando canchas de la comuna…</p>}
     {errorLocal && <p className="posts-feedback posts-error" role="alert">{errorLocal}</p>}
     {aviso && <p className="posts-feedback" role="status">{aviso}</p>}
-    {loading && <p className="posts-feedback" role="status">Cargando canchas registradas…</p>}
+    {!comunaCodigo && loading && <p className="posts-feedback" role="status">Cargando canchas registradas…</p>}
     {!(comunaCodigo ? loadingComuna : loading) && !error && !errorComuna && (filtered.length
       ? <div className="post-grid">
         {filtered.map(item => {

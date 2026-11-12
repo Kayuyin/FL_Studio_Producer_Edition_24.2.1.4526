@@ -2,8 +2,6 @@ import { useEffect, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { CanchaRegistrada } from './canchas'
 import { editarCancha, escucharCanchasPorComuna } from './canchas'
-import { escucharCanchasDemo } from './canchasDemo'
-import type { CanchaDemo } from './canchasDemo'
 import { FutIcon } from './FutIcon'
 import type { Solicitud } from './solicitudes'
 import type { Partido } from './partidos'
@@ -30,11 +28,8 @@ export function CatalogoCanchas({
   const [search, setSearch] = useState('')
   const [comunaCodigo, setComunaCodigo] = useState(initialComunaCodigo)
   const [canchasComuna, setCanchasComuna] = useState<CanchaRegistrada[]>([])
-  const [demoCanchas, setDemoCanchas] = useState<CanchaDemo[]>([])
   const [loadingComuna, setLoadingComuna] = useState(false)
-  const [loadingDemo, setLoadingDemo] = useState(false)
   const [errorComuna, setErrorComuna] = useState('')
-  const [errorDemo, setErrorDemo] = useState('')
 
   useEffect(() => {
     setComunaCodigo(actual => actual || initialComunaCodigo)
@@ -43,26 +38,17 @@ export function CatalogoCanchas({
   useEffect(() => {
     if (!comunaCodigo) {
       setCanchasComuna([])
-      setDemoCanchas([])
       setLoadingComuna(false)
-      setLoadingDemo(false)
       setErrorComuna('')
-      setErrorDemo('')
       return
     }
     setLoadingComuna(true)
-    setLoadingDemo(true)
     setCanchasComuna([])
-    setDemoCanchas([])
     setErrorComuna('')
-    setErrorDemo('')
     const stopReales = escucharCanchasPorComuna(comunaCodigo,
       items => { setCanchasComuna(items); setLoadingComuna(false) },
       cause => { setErrorComuna(cause.message); setLoadingComuna(false) })
-    const stopDemo = escucharCanchasDemo(comunaCodigo,
-      items => { setDemoCanchas(items); setLoadingDemo(false) },
-      cause => { setErrorDemo(cause.message); setLoadingDemo(false) })
-    return () => { stopReales(); stopDemo() }
+    return () => { stopReales() }
   }, [comunaCodigo])
   const [busyId, setBusyId] = useState('')
   const [errorLocal, setErrorLocal] = useState('')
@@ -74,8 +60,6 @@ export function CatalogoCanchas({
   const filtered = (comunaCodigo ? canchasComuna : canchas).filter((item) =>
     (!term || [item.nombre, item.descripcion, item.comuna, item.futbol, item.direccion]
       .some((value) => value.toLocaleLowerCase('es-CL').includes(term))))
-  const demoFiltradas = demoCanchas.filter(item => !term ||
-    [item.nombre, item.comuna, item.modalidad].some(value => value.toLocaleLowerCase('es-CL').includes(term)))
 
   async function perform(cancha: CanchaRegistrada, reservar: boolean) {
     setBusyId(cancha.id)
@@ -124,19 +108,18 @@ export function CatalogoCanchas({
       <label className="search-box"><FutIcon name="search" /> <input value={search} aria-label="Buscar cancha"
         onChange={event => setSearch(event.target.value)} placeholder="Nombre, modalidad o comuna" /></label>
       <select aria-label="Filtrar por comuna" value={comunaCodigo} onChange={event => setComunaCodigo(event.target.value)}>
-        <option value="">Últimas 100 canchas registradas</option>
+        <option value="">Ver canchas recientes (todas las comunas)</option>
         {REGIONES_CHILE.flatMap(region => region.comunas.map(item =>
           <option key={item.codigo} value={item.codigo}>{item.nombre} · {region.nombre}</option>))}
       </select>
     </div>
-    <p className="muted">Selecciona una comuna para consultar todos sus recintos reales y cinco ejemplos de demostración, si fueron importados. Los ejemplos no admiten reservas ni contactos.</p>
+    <p className="muted">Selecciona una comuna para encontrar sus canchas registradas en FutMatch.</p>
     {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}
     {errorComuna && <p className="posts-feedback posts-error" role="alert">No se pudieron consultar las canchas de la comuna: {errorComuna}</p>}
-    {errorDemo && <p className="posts-feedback posts-error" role="alert">No se pudieron consultar las canchas de prueba: {errorDemo}</p>}
-    {(loadingComuna || loadingDemo) && <p className="posts-feedback" role="status">Buscando canchas de la comuna…</p>}
+    {loadingComuna && <p className="posts-feedback" role="status">Buscando canchas de la comuna…</p>}
     {errorLocal && <p className="posts-feedback posts-error" role="alert">{errorLocal}</p>}
     {aviso && <p className="posts-feedback" role="status">{aviso}</p>}
-    {loading && <p className="posts-feedback" role="status">Cargando canchas registradas…</p>}
+    {!comunaCodigo && loading && <p className="posts-feedback" role="status">Cargando canchas registradas…</p>}
     {!(comunaCodigo ? loadingComuna : loading) && !error && !errorComuna && (filtered.length
       ? <div className="post-grid">
         {filtered.map(item => {
@@ -169,27 +152,6 @@ export function CatalogoCanchas({
         })}
       </div>
       : <p className="posts-feedback">No hay canchas reales registradas con estos filtros. Los dueños pueden anunciarlas desde su cuenta.</p>)}
-    {comunaCodigo && <section className="role-section" aria-label="Canchas de demostración">
-      <div className="section-heading">
-        <div><h2>Canchas de demostración</h2>
-          <p className="muted">Datos ficticios para probar los filtros. No son instalaciones verificadas ni reservables.</p>
-        </div>
-      </div>
-      {!loadingDemo && !errorDemo && (demoFiltradas.length
-        ? <div className="post-grid">{demoFiltradas.map(item =>
-          <article className="team-card" key={item.id}>
-            <div className="team-shield"><FutIcon name="football" /></div>
-            <h2>{item.nombre}</h2>
-            <p className="muted"><FutIcon name="map-pin" /> {item.comuna} · {item.region}</p>
-            <p className="team-captain"><strong>Modalidad:</strong> {item.modalidad}</p>
-            <p className="type-pill" style={{ color: '#7651df', background: '#f0edff' }}>Solo demostración</p>
-            <p className="team-description">{item.descripcion}</p>
-            <button type="button" className="secondary-button" disabled title="No admite reservas ni contacto real">
-              No disponible para reservas
-            </button>
-          </article>)}</div>
-        : <p className="posts-feedback">Aún no hay datos demo para esta comuna. Ejecuta el script de importación de canchas demo en Firestore.</p>)}
-    </section>}
   </div>
 }
 

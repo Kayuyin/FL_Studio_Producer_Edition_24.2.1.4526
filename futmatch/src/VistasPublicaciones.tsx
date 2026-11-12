@@ -394,14 +394,15 @@ export function Publish({
 
   return <div className="page narrow-page">
     <div className="page-heading"><div>
-      <p className="eyebrow">COMPARTE CON LA COMUNIDAD</p>
-      <h1>Crear publicación</h1>
+      <p className="eyebrow">{isOffer ? 'GESTIÓN DE CANCHAS' : 'COMPARTE CON LA COMUNIDAD'}</p>
+      <h1>{isOffer ? 'Anunciar mi cancha' : 'Crear publicación'}</h1>
       <p className="muted">{isOffer
-        ? 'Anuncia tu cancha para recibir solicitudes de contacto. Las reservas y los pagos no se realizan en FutMatch.'
+        ? 'Registra tu cancha para que los capitanes puedan encontrarla y solicitar una reserva. Los pagos se coordinan directamente.'
         : 'La publicación quedará disponible para la comunidad de FutMatch.'}</p>
     </div></div>
     <form className="form-card" onSubmit={(event) => { void submit(event) }}>
-      <span className="field-label" id="tipo-publicacion-label">¿Qué quieres publicar?</span>
+      {permitidas.length > 1 && <>
+        <span className="field-label" id="tipo-publicacion-label">¿Qué quieres publicar?</span>
       <div className="choice-grid" role="group" aria-labelledby="tipo-publicacion-label">
         {permitidas.map((tipo) => <button
           key={tipo}
@@ -413,6 +414,7 @@ export function Publish({
           <FutCategoriaIcon categoria={tipo} /><strong>{categorias[tipo].label}</strong><small>{opciones[tipo].description}</small>
         </button>)}
       </div>
+      </>}
       {isEquipo && <>
         {!equipo && <div className="posts-feedback posts-error">
           Para publicar una convocatoria o un desafío primero debes registrar tu equipo.
@@ -443,7 +445,7 @@ export function Publish({
         </div>
         <p className="muted">Las reservas se solicitan para partidos confirmados. El dueño acepta o rechaza cada horario; publicar la cancha no garantiza disponibilidad.</p>
       </>}
-      <label>Título de la publicación
+      <label>{isOffer ? 'Título del anuncio' : 'Título de la publicación'}
         <input value={titulo} onChange={(event) => setTitulo(event.target.value)} maxLength={110} minLength={5} required placeholder={opciones[categoria].example} />
       </label>
       <label>Descripción
@@ -471,7 +473,7 @@ export function Publish({
       {!isCancha && <label>Nivel de juego
         <select value={nivel} onChange={(event) => setNivel(event.target.value as Nivel)}>{niveles.map((item) => <option key={item}>{item}</option>)}</select>
       </label>}
-      <div className="form-columns">
+      {!isOffer && <div className="form-columns">
         <label>Fecha {categoria === 'equipo_busca_rival' ? '' : '(opcional)'}
           <input type="date" min={minDate} required={categoria === 'equipo_busca_rival'} value={fecha} onChange={(event) => setFecha(event.target.value)} />
         </label>
@@ -479,10 +481,10 @@ export function Publish({
           <input type="time" step={categoria === 'equipo_busca_rival' ? 3600 : 60}
             required={categoria === 'equipo_busca_rival'} value={hora} onChange={(event) => setHora(event.target.value)} />
         </label>
-      </div>
+      </div>}
       {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}
       <button className="primary-button publish-button" type="submit" disabled={sending}>
-        {sending ? 'Publicando…' : 'Publicar en FutMatch →'}
+        {sending ? 'Publicando…' : isOffer ? 'Registrar cancha en FutMatch' : 'Publicar en FutMatch →'}
       </button>
     </form>
   </div>

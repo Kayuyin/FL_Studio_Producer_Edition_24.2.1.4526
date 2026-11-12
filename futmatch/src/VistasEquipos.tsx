@@ -9,10 +9,11 @@ import type { Publicacion } from './publicaciones'
 import type { Solicitud } from './solicitudes'
 import type { TipoCuenta } from './tiposCuenta'
 import { REGIONES_CHILE, obtenerRegion } from './territorioChile'
+import { FutIcon } from './FutIcon'
 
 export function CatalogoEquipos({
   equipos, loading, error, onOpenTeam, onFindVacancies, onFindRivals,
-  viewerTipoCuenta, currentUid, miEquipo, publicaciones, solicitudes, onInterest,
+  viewerTipoCuenta, currentUid, miEquipo, publicaciones, solicitudes, onInterest, onRegisterTeam,
 }: {
   equipos: EquipoRegistrado[]
   loading: boolean
@@ -26,6 +27,7 @@ export function CatalogoEquipos({
   publicaciones: Publicacion[]
   solicitudes: Solicitud[]
   onInterest: (post: Publicacion) => Promise<void>
+  onRegisterTeam: () => void
 }) {
   const [search, setSearch] = useState('')
   const [contactando, setContactando] = useState('')
@@ -64,11 +66,16 @@ export function CatalogoEquipos({
       </button>
     </div>
     {puedeRetar && !miEquipo &&
-      <p role="status" className="posts-feedback">Primero registra tu equipo en «Mi equipo» para poder contactar a un rival.</p>}
+      <div role="status" className="posts-feedback team-registration-alert">
+        <p>Para contactar con otro capitán, primero registra tu propio equipo. Es un requisito para organizar partidos entre equipos reales.</p>
+        <button type="button" className="secondary-button" onClick={onRegisterTeam}>
+          <FutIcon name="plus" /> Ir a registrar mi equipo
+        </button>
+      </div>}
     {mensaje && <p role="status" className="posts-feedback">{mensaje}</p>}
     {errorContacto && <p role="alert" className="posts-feedback posts-error">{errorContacto}</p>}
     <div className="filter-row">
-      <label className="search-box">⌕ <input aria-label="Buscar equipos" placeholder="Buscar equipo, comuna o capitán..."
+      <label className="search-box"><FutIcon name="search" /> <input aria-label="Buscar equipos" placeholder="Buscar equipo, comuna o capitán..."
         value={search} onChange={(event) => setSearch(event.target.value)} /></label>
     </div>
     {error && <p className="posts-feedback posts-error" role="alert">{error}</p>}
@@ -90,15 +97,18 @@ export function CatalogoEquipos({
             <button type="button" className="secondary-button" onClick={() => onOpenTeam(team.id)}>
               Ver plantilla y capitán
             </button>
-            {puedeRetar && desafio &&
-              <button type="button" className="primary-button"
-                disabled={!miEquipo || !!contactando || !!solicitud}
-                onClick={() => { void contactarDesafio(desafio) }}>
-                {contactando === desafio.id ? 'Enviando…' : solicitud
-                  ? solicitud.estado === 'aceptada' ? 'Contacto aceptado'
-                    : solicitud.estado === 'rechazada' ? 'Solicitud rechazada' : 'Solicitud enviada'
-                  : 'Contactar para jugar'}
-              </button>}
+            {puedeRetar && desafio && (miEquipo
+              ? <button type="button" className="primary-button"
+                  disabled={!!contactando || !!solicitud}
+                  onClick={() => { void contactarDesafio(desafio) }}>
+                  {contactando === desafio.id ? 'Enviando…' : solicitud
+                    ? solicitud.estado === 'aceptada' ? 'Contacto aceptado'
+                      : solicitud.estado === 'rechazada' ? 'Solicitud rechazada' : 'Solicitud enviada'
+                    : 'Contactar para jugar'}
+                </button>
+              : <button type="button" className="secondary-button team-register-button" onClick={onRegisterTeam}>
+                  <FutIcon name="plus" /> Registra tu equipo para contactar
+                </button>)}
             {puedeRetar && !desafio &&
               <p className="muted">Este equipo aún no publicó un desafío de partido.</p>}
           </article>

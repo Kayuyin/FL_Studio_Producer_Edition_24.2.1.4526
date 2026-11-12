@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import type { FormEvent } from 'react'
 import type { User } from 'firebase/auth'
 import { categorias, crearPublicacion } from './publicaciones'
+import { FutIcon, FutCategoriaIcon } from './FutIcon'
 import { registrarCanchaYAnuncio } from './canchas'
 import type { EquipoRegistrado } from './equipos'
 import { REGIONES_CHILE, obtenerComuna, obtenerRegion } from './territorioChile'
@@ -105,7 +106,7 @@ export function PublicacionCard({
   return <article className="post-card">
     <div className="card-top">
       <span className="type-pill" style={{ color: category.color, backgroundColor: `${category.color}16` }}>
-        {category.icon} {category.label}
+        <FutCategoriaIcon categoria={post.categoria} /> {category.label}
       </span>
     </div>
     <div className="author">
@@ -115,10 +116,10 @@ export function PublicacionCard({
     <h3>{post.titulo}</h3>
     <p className="card-description">{post.descripcion}</p>
     <div className="details">
-      <span>⌖ {post.comuna}</span>
-      <span>◷ {fechaLegible(post.fecha)}</span>
-      <span>◷ {post.hora || 'Por coordinar'}</span>
-      <span>⚽ {post.futbol}</span>
+      <span><FutIcon name="map-pin" /> {post.comuna}</span>
+      <span><FutIcon name="calendar" /> {fechaLegible(post.fecha)}</span>
+      <span><FutIcon name="calendar" /> {post.hora || 'Por coordinar'}</span>
+      <span><FutIcon name="football" /> {post.futbol}</span>
     </div>
     <div className="card-footer">
       <span className="level">{post.categoria === 'busca_cancha' ? 'Solicitud de cancha' : post.categoria === 'ofrece_cancha' ? 'Oferta de cancha' : post.nivel}</span>
@@ -252,11 +253,11 @@ export function Explore({
         ? <span className="player-vacancy-label">⚽ Vacantes publicadas por capitanes</span>
         : <>
             <button className={filtroActivo === 'todos' ? 'selected' : ''} aria-pressed={filtroActivo === 'todos'} onClick={() => setFilter('todos')}>Todas</button>
-            {categoriasVisibles.map((tipo) => <button key={tipo} className={filtroActivo === tipo ? 'selected' : ''} aria-pressed={filtroActivo === tipo} onClick={() => setFilter(tipo)}>{categorias[tipo].icon} {categorias[tipo].label}</button>)}
+            {categoriasVisibles.map((tipo) => <button key={tipo} className={filtroActivo === tipo ? 'selected' : ''} aria-pressed={filtroActivo === tipo} onClick={() => setFilter(tipo)}><FutCategoriaIcon categoria={tipo} /> {categorias[tipo].label}</button>)}
           </>}
     </div>
     <div className="filter-row">
-      <label className="search-box" aria-label="Buscar publicaciones">⌕ <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por comuna, nombre o publicación" /></label>
+      <label className="search-box" aria-label="Buscar publicaciones"><FutIcon name="search" /> <input value={search} onChange={(event) => setSearch(event.target.value)} placeholder="Buscar por comuna, nombre o publicación" /></label>
       {['busca_cancha', 'ofrece_cancha'].includes(filtroActivo) && <select aria-label="Filtrar canchas por comuna" value={comunaCancha} onChange={(event) => setComunaCancha(event.target.value)}>
         <option value="">Todas las comunas</option>
         {REGIONES_CHILE.flatMap((region) => region.comunas.map((item) =>
@@ -411,7 +412,7 @@ export function Publish({
           aria-pressed={categoria === tipo}
           onClick={() => { setCategoria(tipo); setError('') }}
         >
-          {categorias[tipo].icon}<strong>{categorias[tipo].label}</strong><small>{opciones[tipo].description}</small>
+          <FutCategoriaIcon categoria={tipo} /><strong>{categorias[tipo].label}</strong><small>{opciones[tipo].description}</small>
         </button>)}
       </div>
       {isEquipo && <>

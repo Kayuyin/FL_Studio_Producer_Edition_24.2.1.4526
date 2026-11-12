@@ -2,6 +2,8 @@ import type { Publicacion, Categoria } from './publicaciones'
 import type { Solicitud } from './solicitudes'
 import type { TipoCuenta } from './tiposCuenta'
 import { TIPOS_CUENTA } from './tiposCuenta'
+import { FutIcon } from './FutIcon'
+import type { FutIconName } from './FutIcon'
 import type { PerfilUsuario } from './Perfil'
 import { PublicacionCard } from './VistasPublicaciones'
 
@@ -10,7 +12,7 @@ type Seccion = 'publicar' | 'mis_publicaciones' | 'mi_equipo' | 'matches' | 'men
 type Acceso = {
   texto: string
   descripcion: string
-  icono: string
+  icono: FutIconName
   accion: () => void
 }
 
@@ -49,10 +51,10 @@ export function PanelPorRol({
   let destacado = 'Vacantes publicadas por capitanes'
   let categoriaSugerida: Categoria = 'equipo_busca_jugadores'
   let accesos: Acceso[] = [
-    { texto: 'Buscar equipo', descripcion: 'Vacantes publicadas por capitanes', icono: '⌕', accion: () => onExplore('equipo_busca_jugadores') },
-    { texto: 'Ofrecerme como jugador', descripcion: 'Publica tu búsqueda de equipo', icono: '+', accion: () => onPublish('persona_busca_equipo') },
-    { texto: 'Mis postulaciones', descripcion: 'Revisa las solicitudes enviadas', icono: '♥', accion: () => onNavigate('matches') },
-    { texto: 'Equipos registrados', descripcion: 'Conoce capitanes y plantillas', icono: '⚽', accion: onOpenEquipos },
+    { texto: 'Buscar equipo', descripcion: 'Vacantes publicadas por capitanes', icono: 'search', accion: () => onExplore('equipo_busca_jugadores') },
+    { texto: 'Ofrecerme como jugador', descripcion: 'Publica tu búsqueda de equipo', icono: 'plus', accion: () => onPublish('persona_busca_equipo') },
+    { texto: 'Mis postulaciones', descripcion: 'Revisa las solicitudes enviadas', icono: 'handshake', accion: () => onNavigate('matches') },
+    { texto: 'Equipos registrados', descripcion: 'Conoce capitanes y plantillas', icono: 'users', accion: onOpenEquipos },
   ]
 
   if (tipoCuenta === 'capitan' || tipoCuenta === 'equipo') {
@@ -63,21 +65,21 @@ export function PanelPorRol({
     destacado = 'Jugadores que están buscando equipo'
     categoriaSugerida = 'persona_busca_equipo'
     accesos = [
-      { texto: 'Encontrar jugadores', descripcion: 'Jugadores disponibles', icono: '⌕', accion: () => onExplore('persona_busca_equipo') },
-      { texto: 'Buscar refuerzos', descripcion: 'Publica una convocatoria', icono: '+', accion: () => onPublish('equipo_busca_jugadores') },
-      { texto: 'Buscar un rival', descripcion: 'Explora desafíos de otros capitanes', icono: '⚔', accion: () => onExplore('equipo_busca_rival') },
-      { texto: 'Buscar equipos rivales', descripcion: 'Consulta los equipos y sus plantillas', icono: '⚽', accion: onOpenEquipos },
-      { texto: 'Mi equipo', descripcion: 'Ver capitán y plantilla', icono: '⚽', accion: () => onNavigate('mi_equipo') },
-      { texto: 'Buscar cancha', descripcion: 'Revisa recintos disponibles', icono: '▣', accion: onOpenCanchas },
-      { texto: 'Mis publicaciones', descripcion: 'Administrar y eliminar mis anuncios', icono: '▤', accion: () => onNavigate('mis_publicaciones') },
-      { texto: 'Mis partidos', descripcion: 'Confirmar partidos y organizar encuentros', icono: '⚔', accion: onOpenPartidos },
-      { texto: 'Reservas', descripcion: 'Ver solicitudes de canchas', icono: '▣', accion: onOpenReservas },
+      { texto: 'Encontrar jugadores', descripcion: 'Jugadores disponibles', icono: 'search', accion: () => onExplore('persona_busca_equipo') },
+      { texto: 'Buscar refuerzos', descripcion: 'Publica una convocatoria', icono: 'plus', accion: () => onPublish('equipo_busca_jugadores') },
+      { texto: 'Buscar un rival', descripcion: 'Explora desafíos de otros capitanes', icono: 'swords', accion: () => onExplore('equipo_busca_rival') },
+      { texto: 'Buscar equipos rivales', descripcion: 'Consulta los equipos y sus plantillas', icono: 'users', accion: onOpenEquipos },
+      { texto: 'Mi equipo', descripcion: 'Ver capitán y plantilla', icono: 'users', accion: () => onNavigate('mi_equipo') },
+      { texto: 'Buscar cancha', descripcion: 'Revisa recintos disponibles', icono: 'map-pin', accion: onOpenCanchas },
+      { texto: 'Mis publicaciones', descripcion: 'Administrar y eliminar mis anuncios', icono: 'files', accion: () => onNavigate('mis_publicaciones') },
+      { texto: 'Mis partidos', descripcion: 'Confirmar partidos y organizar encuentros', icono: 'swords', accion: onOpenPartidos },
+      { texto: 'Reservas', descripcion: 'Ver solicitudes de canchas', icono: 'map-pin', accion: onOpenReservas },
     ]
     if (tipoCuenta === 'equipo') {
       // En cuentas antiguas se evita ofrecer nuevas convocatorias de Capitán
       // hasta que el titular cambie explícitamente de rol en Perfil.
       accesos = accesos.filter(item => item.texto !== 'Buscar refuerzos')
-      accesos.unshift({ texto: 'Actualizar a Capitán', descripcion: 'Conserva tu equipo, matches y publicaciones', icono: '◉', accion: () => onNavigate('perfil') })
+      accesos.unshift({ texto: 'Actualizar a Capitán', descripcion: 'Conserva tu equipo, matches y publicaciones', icono: 'user', accion: () => onNavigate('perfil') })
     }
   } else if (tipoCuenta === 'dueno_cancha') {
     titulo = 'Panel de mis canchas'
@@ -85,11 +87,11 @@ export function PanelPorRol({
     destacado = 'Mis canchas'
     categoriaSugerida = 'ofrece_cancha'
     accesos = [
-      { texto: 'Anunciar cancha', descripcion: 'Publica una oferta de tu recinto', icono: '+', accion: () => onPublish('ofrece_cancha') },
-      { texto: 'Mis canchas', descripcion: 'Revisa o elimina anuncios propios', icono: '▤', accion: () => onNavigate('mis_publicaciones') },
-      { texto: 'Conversaciones', descripcion: 'Acepta consultas y conversa por chat', icono: '▱', accion: () => onNavigate('mensajes') },
-      { texto: 'Solicitudes de reserva', descripcion: 'Aceptar o rechazar horarios solicitados', icono: '▣', accion: onOpenReservas },
-      { texto: 'Editar perfil', descripcion: 'Actualiza los datos de tu cancha', icono: '◉', accion: () => onNavigate('perfil') },
+      { texto: 'Anunciar cancha', descripcion: 'Publica una oferta de tu recinto', icono: 'plus', accion: () => onPublish('ofrece_cancha') },
+      { texto: 'Mis canchas', descripcion: 'Revisa o elimina anuncios propios', icono: 'files', accion: () => onNavigate('mis_publicaciones') },
+      { texto: 'Conversaciones', descripcion: 'Acepta consultas y conversa por chat', icono: 'message', accion: () => onNavigate('mensajes') },
+      { texto: 'Solicitudes de reserva', descripcion: 'Aceptar o rechazar horarios solicitados', icono: 'map-pin', accion: onOpenReservas },
+      { texto: 'Editar perfil', descripcion: 'Actualiza los datos de tu cancha', icono: 'user', accion: () => onNavigate('perfil') },
     ]
   }
   const sugeridas = publicaciones.filter((post) => post.categoria === categoriaSugerida
@@ -115,7 +117,7 @@ export function PanelPorRol({
       <h2>Accesos rápidos</h2>
       <div className="role-shortcuts">
         {accesos.map((item) => <button type="button" className="role-shortcut" key={item.texto} onClick={item.accion}>
-          <span className="role-shortcut-icon" aria-hidden="true">{item.icono}</span>
+          <span className="role-shortcut-icon" aria-hidden="true"><FutIcon name={item.icono} /></span>
           <strong>{item.texto}</strong>
           <small>{item.descripcion}</small>
         </button>)}

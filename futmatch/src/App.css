@@ -217,3 +217,33 @@
 .owner-bookings-embedded .page-heading{margin-bottom:12px}
 .owner-bookings-embedded .page-heading h2{font-size:20px;margin:4px 0}
 .owner-bookings-embedded .sports-cards{grid-template-columns:repeat(auto-fit,minmax(min(100%,320px),1fr))}
+
+/* FutMatch: iconos SVG y botones de contacto accesibles */
+.ui-icon{display:inline-block;vertical-align:middle;flex-shrink:0;width:20px;height:20px}
+.nav-icon{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;font-size:inherit}
+.nav-icon .ui-icon{width:19px;height:19px}
+.brand-mark .ui-icon{width:22px;height:22px}
+.main-nav button{cursor:pointer}
+.primary-button:disabled,.secondary-button:disabled{opacity:.55;cursor:not-allowed;transform:none;box-shadow:none}
+.team-registration-alert{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.team-registration-alert p{margin:0;flex:1;min-width:240px}
+.team-registration-alert button,.team-register-button{display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.team-register-button{margin-top:auto}
+.search-box{display:flex;align-items:center;gap:7px}
+.search-box input{margin-left:0;min-width:0;flex:1}
+.type-pill{display:inline-flex;align-items:center;gap:5px}
+.type-pill .ui-icon{width:14px;height:14px}
+.details span{display:inline-flex;align-items:center;gap:4px}
+.details .ui-icon{width:13px;height:13px}
+.filters button{display:inline-flex;align-items:center;gap:6px}
+.filters .ui-icon{width:15px;height:15px}
+.choice .ui-icon{width:22px;height:22px}
+.role-shortcut-icon .ui-icon{width:24px;height:24px}
+.icon-button .ui-icon{width:22px;height:22px}
+.menu-toggle .ui-icon{width:23px;height:23px}
+.logout,.help-link{display:flex;align-items:center;gap:9px}
+.logout .ui-icon,.help-link .ui-icon{width:17px;height:17px}
+.bottom-nav-icon{display:flex;align-items:center;justify-content:center}
+.bottom-nav-icon .ui-icon{width:22px;height:22px}
+.mobile-brand .ui-icon{width:20px;height:20px;margin-right:6px}
+@media(max-width:650px){.team-registration-alert p{min-width:0}.team-registration-alert button{width:100%}}

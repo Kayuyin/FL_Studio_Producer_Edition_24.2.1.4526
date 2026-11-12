@@ -26,22 +26,24 @@ import { Matches, Mensajes, ConversacionesCanchas } from './Conexiones'
 import { Perfil } from './Perfil'
 import type { PerfilUsuario } from './Perfil'
 import { TIPOS_CUENTA, tipoCuentaValido } from './tiposCuenta'
+import { FutIcon } from './FutIcon'
+import type { FutIconName } from './FutIcon'
 import './App.css'
 
 type View = 'inicio' | 'explorar' | 'equipos' | 'mi_equipo' | 'canchas' | 'partidos' | 'reservas' | 'publicar' | 'mis_publicaciones' | 'matches' | 'mensajes' | 'perfil' | 'ayuda'
-const navItems: { id: View; label: string; icon: string }[] = [
-  { id: 'inicio', label: 'Inicio', icon: '⌂' },
-  { id: 'explorar', label: 'Explorar', icon: '⌕' },
-  { id: 'equipos', label: 'Equipos', icon: '⚽' },
-  { id: 'mi_equipo', label: 'Mi equipo', icon: '♟' },
-  { id: 'canchas', label: 'Canchas', icon: '▣' },
-  { id: 'partidos', label: 'Mis partidos', icon: '⚔' },
-  { id: 'reservas', label: 'Reservas', icon: '▤' },
-  { id: 'publicar', label: 'Publicar', icon: '+' },
-  { id: 'mis_publicaciones', label: 'Mis publicaciones', icon: '▤' },
-  { id: 'matches', label: 'Matches', icon: '♥' },
-  { id: 'mensajes', label: 'Mensajes', icon: '▱' },
-  { id: 'perfil', label: 'Perfil', icon: '◉' },
+const navItems: { id: View; label: string; icon: FutIconName }[] = [
+  { id: 'inicio', label: 'Inicio', icon: 'home' },
+  { id: 'explorar', label: 'Explorar', icon: 'search' },
+  { id: 'equipos', label: 'Equipos', icon: 'users' },
+  { id: 'mi_equipo', label: 'Mi equipo', icon: 'shield' },
+  { id: 'canchas', label: 'Canchas', icon: 'map-pin' },
+  { id: 'partidos', label: 'Mis partidos', icon: 'swords' },
+  { id: 'reservas', label: 'Reservas', icon: 'calendar' },
+  { id: 'publicar', label: 'Publicar', icon: 'plus' },
+  { id: 'mis_publicaciones', label: 'Mis publicaciones', icon: 'files' },
+  { id: 'matches', label: 'Matches', icon: 'handshake' },
+  { id: 'mensajes', label: 'Mensajes', icon: 'message' },
+  { id: 'perfil', label: 'Perfil', icon: 'user' },
 ]
 
 export default function App() {
@@ -314,7 +316,7 @@ function Dashboard({
 
   return <div className="app-shell">
     <aside className={`sidebar ${menuOpen ? 'is-open' : ''}`}>
-      <div className="brand"><span className="brand-mark">⚽</span><span>Fut<span>Match</span></span></div>
+      <div className="brand"><span className="brand-mark"><FutIcon name="football" /></span><span>Fut<span>Match</span></span></div>
       <div className="profile-mini">
         <div className="avatar avatar-purple">{initials}</div>
         <div><strong>{displayName}</strong><small>{TIPOS_CUENTA[tipoCuenta].label}</small></div>
@@ -324,23 +326,23 @@ function Dashboard({
         {displayedNav.map((item) => <button
           className={currentView === item.id ? 'active' : ''} type="button" key={item.id}
           onClick={() => goTo(item.id)}
-        ><span className="nav-icon">{item.icon}</span>{labelFor(item)}
+        ><span className="nav-icon"><FutIcon name={item.icon} /></span>{labelFor(item)}
           {(item.id === 'matches' || (tipoCuenta === 'dueno_cancha' && item.id === 'mensajes'))
             && newRequests > 0 && <span className="nav-badge">{newRequests}</span>}
         </button>)}
       </nav>
       <div className="sidebar-bottom">
-        <button className="help-link" type="button" onClick={() => goTo('ayuda')}><span>?</span> Centro de ayuda</button>
-        <button className="logout" type="button" onClick={() => { void signOut(auth) }}><span>↪</span> Cerrar sesión</button>
+        <button className="help-link" type="button" onClick={() => goTo('ayuda')}><FutIcon name="help" /> Centro de ayuda</button>
+        <button className="logout" type="button" onClick={() => { void signOut(auth) }}><FutIcon name="logout" /> Cerrar sesión</button>
       </div>
     </aside>
     <main className="main-content">
       <header className="topbar">
-        <button className="menu-toggle" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menú">☰</button>
-        <div className="mobile-brand">⚽ Fut<span>Match</span></div>
+        <button className="menu-toggle" type="button" onClick={() => setMenuOpen(!menuOpen)} aria-label="Abrir menú"><FutIcon name="menu" /></button>
+        <div className="mobile-brand"><FutIcon name="football" /> Fut<span>Match</span></div>
         <div className="topbar-actions">
           <button type="button" className="icon-button" aria-label={`Solicitudes pendientes: ${newRequests}`}
-            title="Ver solicitudes recibidas" onClick={() => goTo('matches')}>♢{newRequests > 0 && <i />}</button>
+            title="Ver solicitudes recibidas" onClick={() => goTo('matches')}><FutIcon name="bell" />{newRequests > 0 && <i />}</button>
           <button type="button" className="avatar avatar-purple profile-shortcut" title="Ver mi perfil"
             aria-label="Ver mi perfil" onClick={() => goTo('perfil')}>{initials}</button>
         </div>
@@ -372,6 +374,7 @@ function Dashboard({
             onOpenTeam={openEquipo} onFindVacancies={() => explorarCategoria('equipo_busca_jugadores')}
             onFindRivals={() => explorarCategoria('equipo_busca_rival')}
             viewerTipoCuenta={tipoCuenta} currentUid={user.uid} miEquipo={miEquipo}
+             onRegisterTeam={() => goTo('mi_equipo')}
             publicaciones={publicaciones} solicitudes={solicitudes} onInterest={onInterest} />)}
       {currentView === 'mi_equipo' && (tipoCuenta === 'capitan' || tipoCuenta === 'equipo') && <FichaEquipo
         key={miEquipo?.id || 'nuevo'} equipo={miEquipo} user={user} perfil={perfil}
@@ -431,7 +434,7 @@ function Dashboard({
     </main>
     <nav className="bottom-nav">
       {mobileNav.map((item) => <button className={currentView === item.id ? 'active' : ''}
-        type="button" key={item.id} onClick={() => goTo(item.id)}><span>{item.icon}</span>{labelFor(item)}</button>)}
+        type="button" key={item.id} onClick={() => goTo(item.id)}><span className="bottom-nav-icon"><FutIcon name={item.icon} /></span>{labelFor(item)}</button>)}
     </nav>
   </div>
 }

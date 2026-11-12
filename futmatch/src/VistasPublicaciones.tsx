@@ -11,7 +11,6 @@ import type { TipoCuenta } from './tiposCuenta'
 import type { Categoria, Nivel, NuevaPublicacion, Publicacion, TipoFutbol } from './publicaciones'
 import type { Solicitud } from './solicitudes'
 
-const tipos = Object.keys(categorias) as Categoria[]
 const tiposPublicables: Record<TipoCuenta, Categoria[]> = {
   jugador: ['persona_busca_equipo'],
   equipo: ['equipo_busca_rival', 'busca_cancha'],

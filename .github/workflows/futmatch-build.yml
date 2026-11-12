@@ -28,6 +28,7 @@ jobs:
           cache-dependency-path: futmatch/package-lock.json
       - run: npm ci
       - run: npm run build
+      - run: node scripts/seed-canchas-demo.mjs
 
   firestore-rules:
     runs-on: ubuntu-latest

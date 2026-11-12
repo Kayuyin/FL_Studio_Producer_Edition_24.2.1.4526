@@ -17,13 +17,14 @@ type Acceso = {
 }
 
 export function PanelPorRol({
-  nombre, perfil, tipoCuenta, uid, publicaciones, solicitudes, loading, error,
+  nombre, perfil, tipoCuenta, uid, publicaciones, solicitudes, equipoRegistrado, loading, error,
   onNavigate, onExplore, onPublish, onInterest, onDelete, onOpenEquipos, onOpenCanchas, onOpenPartidos, onOpenReservas,
 }: {
   nombre: string
   perfil: PerfilUsuario | null
   tipoCuenta: TipoCuenta
   uid: string
+  equipoRegistrado: boolean
   publicaciones: Publicacion[]
   solicitudes: Solicitud[]
   loading: boolean
@@ -65,20 +66,17 @@ export function PanelPorRol({
     destacado = 'Jugadores que están buscando equipo'
     categoriaSugerida = 'persona_busca_equipo'
     accesos = [
-      { texto: 'Encontrar jugadores', descripcion: 'Jugadores disponibles', icono: 'search', accion: () => onExplore('persona_busca_equipo') },
-      { texto: 'Buscar refuerzos', descripcion: 'Publica una convocatoria', icono: 'plus', accion: () => onPublish('equipo_busca_jugadores') },
-      { texto: 'Buscar un rival', descripcion: 'Explora desafíos de otros capitanes', icono: 'swords', accion: () => onExplore('equipo_busca_rival') },
-      { texto: 'Buscar equipos rivales', descripcion: 'Consulta los equipos y sus plantillas', icono: 'users', accion: onOpenEquipos },
-      { texto: 'Mi equipo', descripcion: 'Ver capitán y plantilla', icono: 'users', accion: () => onNavigate('mi_equipo') },
-      { texto: 'Buscar cancha', descripcion: 'Revisa recintos disponibles', icono: 'map-pin', accion: onOpenCanchas },
-      { texto: 'Mis publicaciones', descripcion: 'Administrar y eliminar mis anuncios', icono: 'files', accion: () => onNavigate('mis_publicaciones') },
-      { texto: 'Mis partidos', descripcion: 'Confirmar partidos y organizar encuentros', icono: 'swords', accion: onOpenPartidos },
-      { texto: 'Reservas', descripcion: 'Ver solicitudes de canchas', icono: 'map-pin', accion: onOpenReservas },
+      { texto: 'Mi equipo', descripcion: 'Gestiona la plantilla y el capitán', icono: 'shield', accion: () => onNavigate('mi_equipo') },
+      { texto: 'Publicar desafío', descripcion: 'Propón fecha y hora a un rival', icono: 'plus', accion: () => onPublish('equipo_busca_rival') },
+      { texto: 'Buscar rivales', descripcion: 'Conoce equipos de tu comuna', icono: 'users', accion: onOpenEquipos },
+      { texto: 'Mis partidos', descripcion: 'Organiza encuentros confirmados', icono: 'swords', accion: onOpenPartidos },
+      { texto: 'Buscar cancha', descripcion: 'Encuentra recintos y solicita reserva', icono: 'map-pin', accion: onOpenCanchas },
+      { texto: 'Encontrar jugadores', descripcion: 'Conoce jugadores disponibles', icono: 'search', accion: () => onExplore('persona_busca_equipo') },
     ]
     if (tipoCuenta === 'equipo') {
       // En cuentas antiguas se evita ofrecer nuevas convocatorias de Capitán
       // hasta que el titular cambie explícitamente de rol en Perfil.
-      accesos = accesos.filter(item => item.texto !== 'Buscar refuerzos')
+      accesos = accesos.filter(item => item.texto !== 'Publicar desafío')
       accesos.unshift({ texto: 'Actualizar a Capitán', descripcion: 'Conserva tu equipo, matches y publicaciones', icono: 'user', accion: () => onNavigate('perfil') })
     }
   } else if (tipoCuenta === 'dueno_cancha') {
@@ -87,13 +85,30 @@ export function PanelPorRol({
     destacado = 'Mis canchas'
     categoriaSugerida = 'ofrece_cancha'
     accesos = [
-      { texto: 'Anunciar cancha', descripcion: 'Publica una oferta de tu recinto', icono: 'plus', accion: () => onPublish('ofrece_cancha') },
-      { texto: 'Mis canchas', descripcion: 'Revisa o elimina anuncios propios', icono: 'files', accion: () => onNavigate('mis_publicaciones') },
-      { texto: 'Conversaciones', descripcion: 'Acepta consultas y conversa por chat', icono: 'message', accion: () => onNavigate('mensajes') },
-      { texto: 'Solicitudes de reserva', descripcion: 'Aceptar o rechazar horarios solicitados', icono: 'map-pin', accion: onOpenReservas },
-      { texto: 'Editar perfil', descripcion: 'Actualiza los datos de tu cancha', icono: 'user', accion: () => onNavigate('perfil') },
+      { texto: 'Anunciar cancha', descripcion: 'Registra un recinto en Firestore', icono: 'plus', accion: () => onPublish('ofrece_cancha') },
+      { texto: 'Mis canchas', descripcion: 'Revisa tus anuncios y precios', icono: 'files', accion: () => onNavigate('mis_publicaciones') },
+      { texto: 'Solicitudes y reservas', descripcion: 'Responde contactos y confirma horarios', icono: 'calendar', accion: onOpenReservas },
+      { texto: 'Editar perfil', descripcion: 'Actualiza tus datos de contacto', icono: 'user', accion: () => onNavigate('perfil') },
     ]
   }
+  const esDueno = tipoCuenta === 'dueno_cancha'
+  const esCapitan = tipoCuenta === 'capitan' || tipoCuenta === 'equipo'
+  const desafiosPublicados = publicaciones.some(post => post.autorUid === uid && post.categoria === 'equipo_busca_rival')
+  const contactoAceptado = solicitudes.some(item => item.estado === 'aceptada' && item.tipoSolicitud === 'contacto')
+  const pasos = esDueno ? [
+    { titulo: 'Anuncia tu cancha', descripcion: 'Registra ubicación, modalidad y precio por hora.', completo: mias.some(post => post.categoria === 'ofrece_cancha') },
+    { titulo: 'Recibe solicitudes', descripcion: 'Un capitán podrá contactarte o pedir una reserva de un partido confirmado.', completo: porResponder > 0 || conversaciones > 0 },
+    { titulo: 'Confirma el horario', descripcion: 'Acepta o rechaza solicitudes de reserva desde tu bandeja.', completo: false },
+  ] : esCapitan ? [
+    { titulo: 'Registra tu equipo', descripcion: 'Crea la ficha del equipo y su plantilla.', completo: equipoRegistrado },
+    { titulo: 'Publica un desafío', descripcion: 'Propón una fecha y hora para jugar.', completo: desafiosPublicados },
+    { titulo: 'Conecta con un rival', descripcion: 'Envía o acepta un contacto desde Solicitudes.', completo: contactoAceptado },
+    { titulo: 'Confirma y reserva', descripcion: 'Organiza el partido y solicita una cancha.', completo: false },
+  ] : [
+    { titulo: 'Explora vacantes', descripcion: 'Descubre equipos de tu comuna.', completo: false },
+    { titulo: 'Envía tu postulación', descripcion: 'Solicita ingresar a un equipo que busca jugadores.', completo: solicitudes.some(item => item.tipoSolicitud === 'postulacion') },
+    { titulo: 'Habla con el capitán', descripcion: 'Cuando acepte tu solicitud, podrás enviarle mensajes.', completo: solicitudes.some(item => item.tipoSolicitud === 'postulacion' && item.estado === 'aceptada') },
+  ]
   const sugeridas = publicaciones.filter((post) => post.categoria === categoriaSugerida
     && post.autorUid !== uid
     && (tipoCuenta !== 'jugador' || post.autorTipoCuenta === 'capitan')).slice(0, 3)
@@ -112,6 +127,19 @@ export function PanelPorRol({
       <div><strong>{mias.length}</strong><span>{tipoCuenta === 'dueno_cancha' ? 'Anuncios de cancha' : 'Mis publicaciones'}</span></div>
       <div><strong>{porResponder}</strong><span>Solicitudes pendientes</span></div>
       <div><strong>{conversaciones}</strong><span>Contactos aceptados</span></div>
+    </section>
+    <section className="role-section" aria-label="Cómo funciona FutMatch">
+      <div className="section-heading"><div>
+        <h2>Tu ruta en FutMatch</h2>
+        <p className="muted">Sigue estos pasos para aprovechar tu cuenta.</p>
+      </div></div>
+      <div className="role-steps">
+        {pasos.map((paso, indice) => <div className="role-step" key={paso.titulo}>
+          <span className={`role-step-number ${paso.completo ? 'completed' : ''}`}>{paso.completo ? '✓' : indice + 1}</span>
+          <strong>{paso.titulo}</strong>
+          <p>{paso.descripcion}</p>
+        </div>)}
+      </div>
     </section>
     <section className="role-section">
       <h2>Accesos rápidos</h2>
@@ -137,7 +165,7 @@ export function PanelPorRol({
           ? 'Todavía no hay vacantes publicadas por capitanes. Revisa Explorar más adelante.'
           : 'Todavía no hay publicaciones de esta categoría. Puedes revisar todas en Explorar.'}</p>)}
     </section>}
-    {tipoCuenta === 'dueno_cancha' && <p className="role-note">Solo puedes publicar ofertas de cancha y atender conversaciones relacionadas con tus anuncios. FutMatch no confirma reservas ni gestiona pagos.</p>}
+    {tipoCuenta === 'dueno_cancha' && <p className="role-note">Las solicitudes de reserva se confirman dentro de FutMatch. El pago se coordina directamente entre los equipos y el dueño de la cancha.</p>}
   </div>
 }
 

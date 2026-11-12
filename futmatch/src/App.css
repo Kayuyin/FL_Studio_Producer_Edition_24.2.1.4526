@@ -247,3 +247,27 @@
 .bottom-nav-icon .ui-icon{width:22px;height:22px}
 .mobile-brand .ui-icon{width:20px;height:20px;margin-right:6px}
 @media(max-width:650px){.team-registration-alert p{min-width:0}.team-registration-alert button{width:100%}}
+
+/* Presentación: navegación por secciones y guía de uso según el rol */
+@media(min-width:651px){
+  .sidebar{height:100vh;position:sticky;top:0;overflow-y:auto;scrollbar-width:thin}
+}
+.main-nav{display:flex;flex-direction:column;gap:14px;padding-top:18px}
+.nav-group{display:grid;gap:4px}
+.nav-section-title{margin:8px 11px 3px;font-size:10px;font-weight:800;letter-spacing:1.15px;color:#aaa5b9}
+.nav-group button{min-width:0;white-space:normal}
+.nav-group button[aria-current="page"]{box-shadow:inset 3px 0 0 var(--purple)}
+.role-steps{display:grid;grid-template-columns:repeat(auto-fit,minmax(185px,1fr));gap:12px}
+.role-step{background:#fff;border:1px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;align-items:flex-start;gap:9px;min-width:0}
+.role-step-number{width:30px;height:30px;border-radius:9px;background:#eeeaff;color:var(--purple);display:grid;place-items:center;font-weight:800;font-size:13px}
+.role-step-number.completed{color:#087a59;background:#e8f8f1}
+.role-step strong{font-size:13px;color:var(--text)}
+.role-step p{margin:0;font-size:11px;color:var(--muted);line-height:1.55}
+.role-shortcut{box-shadow:0 3px 14px #392a600a}
+.role-shortcut:focus-visible,.main-nav button:focus-visible,.primary-button:focus-visible,.secondary-button:focus-visible{outline:3px solid #a490ff;outline-offset:2px}
+@media(max-width:650px){
+  .role-steps{grid-template-columns:1fr 1fr;gap:9px}
+  .role-step{padding:13px}
+  .nav-section-title{margin-top:10px}
+}
+@media(max-width:390px){.role-steps{grid-template-columns:1fr}}

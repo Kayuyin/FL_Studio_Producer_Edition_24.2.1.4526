@@ -311,14 +311,22 @@ function Dashboard({
       ? ['inicio','explorar','matches','mensajes','perfil'].includes(item.id)
       : ['inicio','mi_equipo','partidos','reservas','mensajes'].includes(item.id)))
   const currentView: View = roleViews[tipoCuenta].includes(view) ? view : 'inicio'
+  const navigationGroups = [
+    { title: 'DESCUBRIR', ids: ['inicio', 'explorar', 'equipos', 'canchas'] },
+    { title: 'GESTIONAR', ids: ['mi_equipo', 'publicar', 'mis_publicaciones', 'partidos', 'reservas'] },
+    { title: 'COMUNICACIÓN', ids: ['matches', 'mensajes', 'perfil'] },
+  ] as const
   function labelFor(item: (typeof navItems)[number]): string {
     if (tipoCuenta !== 'dueno_cancha') {
       if (item.id === 'equipos') return tipoCuenta === 'jugador' ? 'Buscar equipos' : 'Buscar rivales'
-      return item.id === 'publicar' && tipoCuenta === 'jugador' ? 'Buscar equipo' : item.label
+      if (item.id === 'publicar' && tipoCuenta === 'jugador') return 'Publicar búsqueda'
+      if (item.id === 'matches') return tipoCuenta === 'jugador' ? 'Mis postulaciones' : 'Solicitudes'
+      if (item.id === 'canchas') return 'Buscar canchas'
+      return item.label
     }
     if (item.id === 'publicar') return 'Anunciar cancha'
     if (item.id === 'mis_publicaciones') return 'Mis canchas'
-    if (item.id === 'mensajes') return 'Conversaciones y reservas'
+    if (item.id === 'mensajes') return 'Solicitudes y mensajes'
     if (item.id === 'reservas') return 'Solicitudes de reserva'
     return item.label
   }
@@ -332,13 +340,21 @@ function Dashboard({
         <button type="button" aria-label="Editar mi perfil" title="Editar mi perfil" onClick={() => goTo('perfil')}>•••</button>
       </div>
       <nav className="main-nav" aria-label="Navegación principal">
-        {displayedNav.map((item) => <button
-          className={currentView === item.id ? 'active' : ''} type="button" key={item.id}
-          onClick={() => goTo(item.id)}
-        ><span className="nav-icon"><FutIcon name={item.icon} /></span>{labelFor(item)}
-          {(item.id === 'matches' || (tipoCuenta === 'dueno_cancha' && item.id === 'mensajes'))
-            && newRequests > 0 && <span className="nav-badge">{newRequests}</span>}
-        </button>)}
+        {navigationGroups.map(group => {
+          const visible = displayedNav.filter(item => (group.ids as readonly string[]).includes(item.id))
+          if (!visible.length) return null
+          return <div className="nav-group" key={group.title}>
+            <p className="nav-section-title">{group.title}</p>
+            {visible.map(item => <button
+              className={currentView === item.id ? 'active' : ''} type="button" key={item.id}
+              aria-current={currentView === item.id ? 'page' : undefined}
+              onClick={() => goTo(item.id)}
+            ><span className="nav-icon"><FutIcon name={item.icon} /></span>{labelFor(item)}
+              {(item.id === 'matches' || (tipoCuenta === 'dueno_cancha' && item.id === 'mensajes'))
+                && newRequests > 0 && <span className="nav-badge">{newRequests}</span>}
+            </button>)}
+          </div>
+        })}
       </nav>
       <div className="sidebar-bottom">
         <button className="help-link" type="button" onClick={() => goTo('ayuda')}><FutIcon name="help" /> Centro de ayuda</button>
@@ -366,6 +382,7 @@ function Dashboard({
       </div>}
       {currentView === 'inicio' && <PanelPorRol nombre={displayName} perfil={perfil} tipoCuenta={tipoCuenta}
         uid={user.uid} publicaciones={publicaciones} solicitudes={solicitudes}
+        equipoRegistrado={!!miEquipo}
         loading={postsLoading} error={postsError} onNavigate={goTo} onExplore={explorarCategoria}
         onPublish={publicarCategoria} onInterest={onInterest} onDelete={onDelete}
         onOpenEquipos={() => goTo('equipos')} onOpenCanchas={() => goToCanchas()}

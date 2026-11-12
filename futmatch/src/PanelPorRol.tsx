@@ -17,7 +17,8 @@ type Acceso = {
 }
 
 export function PanelPorRol({
-  nombre, perfil, tipoCuenta, uid, publicaciones, solicitudes, equipoRegistrado, loading, error,
+  nombre, perfil, tipoCuenta, uid, publicaciones, solicitudes,
+  equipoRegistrado, reservasPendientes, reservaConfirmada, partidoConfirmado, loading, error,
   onNavigate, onExplore, onPublish, onInterest, onDelete, onOpenEquipos, onOpenCanchas, onOpenPartidos, onOpenReservas,
 }: {
   nombre: string
@@ -25,6 +26,9 @@ export function PanelPorRol({
   tipoCuenta: TipoCuenta
   uid: string
   equipoRegistrado: boolean
+  reservasPendientes: number
+  reservaConfirmada: boolean
+  partidoConfirmado: boolean
   publicaciones: Publicacion[]
   solicitudes: Solicitud[]
   loading: boolean
@@ -44,6 +48,7 @@ export function PanelPorRol({
   const mias = publicaciones.filter((post) => post.autorUid === uid
     && (tipoCuenta !== 'dueno_cancha' || post.categoria === 'ofrece_cancha'))
   const porResponder = solicitudes.filter((item) => item.autorPublicacionUid === uid && item.estado === 'pendiente').length
+    + (tipoCuenta === 'dueno_cancha' ? reservasPendientes : 0)
   const conversaciones = solicitudes.filter((item) => item.estado === 'aceptada'
     && (tipoCuenta !== 'dueno_cancha' || item.autorPublicacionUid === uid)).length
 
@@ -98,12 +103,12 @@ export function PanelPorRol({
   const pasos = esDueno ? [
     { titulo: 'Anuncia tu cancha', descripcion: 'Registra ubicación, modalidad y precio por hora.', completo: mias.some(post => post.categoria === 'ofrece_cancha') },
     { titulo: 'Recibe solicitudes', descripcion: 'Un capitán podrá contactarte o pedir una reserva de un partido confirmado.', completo: porResponder > 0 || conversaciones > 0 },
-    { titulo: 'Confirma el horario', descripcion: 'Acepta o rechaza solicitudes de reserva desde tu bandeja.', completo: false },
+    { titulo: 'Confirma el horario', descripcion: 'Acepta o rechaza solicitudes de reserva desde tu bandeja.', completo: reservaConfirmada },
   ] : esCapitan ? [
     { titulo: 'Registra tu equipo', descripcion: 'Crea la ficha del equipo y su plantilla.', completo: equipoRegistrado },
     { titulo: 'Publica un desafío', descripcion: 'Propón una fecha y hora para jugar.', completo: desafiosPublicados },
     { titulo: 'Conecta con un rival', descripcion: 'Envía o acepta un contacto desde Solicitudes.', completo: contactoAceptado },
-    { titulo: 'Confirma y reserva', descripcion: 'Organiza el partido y solicita una cancha.', completo: false },
+    { titulo: 'Confirma y reserva', descripcion: 'Organiza el partido y solicita una cancha.', completo: partidoConfirmado && reservaConfirmada },
   ] : [
     { titulo: 'Explora vacantes', descripcion: 'Descubre equipos de tu comuna.', completo: false },
     { titulo: 'Envía tu postulación', descripcion: 'Solicita ingresar a un equipo que busca jugadores.', completo: solicitudes.some(item => item.tipoSolicitud === 'postulacion') },

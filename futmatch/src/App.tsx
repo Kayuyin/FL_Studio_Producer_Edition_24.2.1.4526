@@ -302,8 +302,10 @@ function Dashboard({
     goTo(tipoCuenta === 'dueno_cancha' ? 'mis_publicaciones' : 'explorar')
   }
 
+  const reservasPendientes = tipoCuenta === 'dueno_cancha'
+    ? reservas.filter(item => item.duenoUid === user.uid && item.estado === 'pendiente').length : 0
   const newRequests = solicitudes.filter((item) =>
-    item.autorPublicacionUid === user.uid && item.estado === 'pendiente').length
+    item.autorPublicacionUid === user.uid && item.estado === 'pendiente').length + reservasPendientes
   const displayedNav = navItems.filter(item => roleViews[tipoCuenta].includes(item.id))
   const mobileNav = displayedNav.filter(item => (tipoCuenta === 'dueno_cancha'
     ? ['inicio','publicar','mensajes','perfil'].includes(item.id)
@@ -383,6 +385,9 @@ function Dashboard({
       {currentView === 'inicio' && <PanelPorRol nombre={displayName} perfil={perfil} tipoCuenta={tipoCuenta}
         uid={user.uid} publicaciones={publicaciones} solicitudes={solicitudes}
         equipoRegistrado={!!miEquipo}
+        reservasPendientes={reservasPendientes}
+        reservaConfirmada={reservas.some(item => item.estado === 'confirmada')}
+        partidoConfirmado={partidos.some(item => item.estado === 'confirmado')}
         loading={postsLoading} error={postsError} onNavigate={goTo} onExplore={explorarCategoria}
         onPublish={publicarCategoria} onInterest={onInterest} onDelete={onDelete}
         onOpenEquipos={() => goTo('equipos')} onOpenCanchas={() => goToCanchas()}
